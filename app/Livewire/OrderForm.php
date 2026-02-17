@@ -91,7 +91,7 @@ class OrderForm extends Component
             ->find($this->invoiceProducts[$index]['product_id']);
 
         $this->invoiceProducts[$index]['product_name'] = $product->name;
-        $this->invoiceProducts[$index]['product_price'] = $product->buying_price;
+        $this->invoiceProducts[$index]['product_price'] = $product->price;
         $this->invoiceProducts[$index]['is_saved'] = true;
 
         //
@@ -113,11 +113,11 @@ class OrderForm extends Component
         $cart->add([
             'id' => $product['id'],
             'name' => $product['name'],
-            'price' => $product['buying_price'],
+            'price' => $product['price'],
             'qty' => $this->invoiceProducts[$index]['quantity'], //form field
             'weight' => 1,
             'options' => [
-                'code' => $product['code'],
+            'code' => $product['code'],
             ],
         ]);
     }

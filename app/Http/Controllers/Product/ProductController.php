@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Product;
 
+use App\Models\Unit;
+use App\Models\Product;
+use App\Models\Category;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use App\Models\ProductTransactionBatch;
+use Picqer\Barcode\BarcodeGeneratorHTML;
 use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
-use App\Models\Category;
-use App\Models\Product;
-use App\Models\Unit;
-use Illuminate\Http\Request;
-use Picqer\Barcode\BarcodeGeneratorHTML;
 
 class ProductController extends Controller
 {
@@ -27,56 +30,31 @@ class ProductController extends Controller
     public function create(Request $request)
     {
         $categories = Category::all(['id', 'name']);
-        $units = Unit::all(['id', 'name']);
 
         if ($request->has('category')) {
             $categories = Category::whereSlug($request->get('category'))->get();
         }
 
-        if ($request->has('unit')) {
-            $units = Unit::whereSlug($request->get('unit'))->get();
-        }
-
         return view('products.create', [
             'categories' => $categories,
-            'units' => $units,
         ]);
     }
 
     public function store(StoreProductRequest $request)
     {
-        $existingProduct = Product::where('code', $request->get('code'))->first();
+        $existingProduct = Product::where('sku', $request->get('sku'))->first();
         
         if ($existingProduct) {
-            $newCode = $this->generateUniqueCode();
+            $newSKU = $this->generateUniqueCode($existingProduct);
             
-            $request->merge(['code' => $newCode]);
+            $request->merge(['sku' => $newSKU]);
         }
-
         try {
             $product = Product::create($request->all());
 
-            /**
-             * Handle image upload
-             */
-            if ($request->hasFile('product_image')) {
-                $file = $request->file('product_image');
-                $filename = hexdec(uniqid()) . '.' . $file->getClientOriginalExtension();
-
-                // Validate file before uploading
-                if ($file->isValid()) {
-                    $file->storeAs('products/', $filename, 'public');
-                    $product->update([
-                        'product_image' => $filename
-                    ]);
-                } else {
-                    return back()->withErrors(['product_image' => 'Invalid image file']);
-                }
-            }
-
             return redirect()
                 ->back()
-                ->with('success', 'Product has been created with code: ' . $product->code);
+                ->with('success', 'Product has been created with SKU: ' . $product->sku);
 
         } catch (\Exception $e) {
             // Handle any unexpected errors
@@ -85,33 +63,43 @@ class ProductController extends Controller
     }
 
     // Helper method to generate a unique product code
-    private function generateUniqueCode()
+    private function generateUniqueCode($existingProduct)
     {
         do {
-            $code = 'PC' . strtoupper(uniqid());
-        } while (Product::where('code', $code)->exists()); 
-
-        return $code;
+            $prefix = strtoupper(preg_replace('/[^A-Z]/', '', collect(explode(' ', $existingProduct->name))
+                ->map(fn($word) => substr($word, 0, 1))
+                ->implode('')
+            ));
+        
+            $random = strtoupper(Str::random(10 - strlen($prefix)));
+            $sku = $prefix . $random;
+        
+        } while (Product::where('sku', $sku)->exists());
+    
+        return $sku;
     }
+
 
     public function show(Product $product)
     {
-        // Generate a barcode
-        $generator = new BarcodeGeneratorHTML();
-
-        $barcode = $generator->getBarcode($product->code, $generator::TYPE_CODE_128);
-
+        $transactions = ProductTransactionBatch::with(['type','items', 'items.product', 'user_created'])
+            ->whereHas('items', function ($query) use ($product) {
+                $query->where('product_id', $product->id);
+            })
+            ->latest()
+            ->get();
+    
         return view('products.show', [
             'product' => $product,
-            'barcode' => $barcode,
+            'transactions' => $transactions,
         ]);
     }
+
 
     public function edit(Product $product)
     {
         return view('products.edit', [
             'categories' => Category::all(),
-            'units' => Unit::all(),
             'product' => $product
         ]);
     }
@@ -120,25 +108,25 @@ class ProductController extends Controller
     {
         $product->update($request->except('product_image'));
 
-        if ($request->hasFile('product_image')) {
+        // if ($request->hasFile('product_image')) {
 
-            // Delete old image if exists
-            if ($product->product_image) {
-                \Storage::disk('public')->delete('products/' . $product->product_image);
-            }
+        //     // Delete old image if exists
+        //     if ($product->product_image) {
+        //         \Storage::disk('public')->delete('products/' . $product->product_image);
+        //     }
 
-            // Prepare new image
-            $file = $request->file('product_image');
-            $fileName = hexdec(uniqid()) . '.' . $file->getClientOriginalExtension();
+        //     // Prepare new image
+        //     $file = $request->file('product_image');
+        //     $fileName = hexdec(uniqid()) . '.' . $file->getClientOriginalExtension();
 
-            // Store new image to public storage
-            $file->storeAs('products/', $fileName, 'public');
+        //     // Store new image to public storage
+        //     $file->storeAs('products/', $fileName, 'public');
 
-            // Save new image name to database
-            $product->update([
-                'product_image' => $fileName
-            ]);
-        }
+        //     // Save new image name to database
+        //     $product->update([
+        //         'product_image' => $fileName
+        //     ]);
+        // }
 
         return redirect()
             ->route('products.index')
@@ -147,13 +135,9 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
-        /**
-         * Delete photo if exists.
-         */
-        if ($product->product_image) {
-            \Storage::disk('public')->delete('products/' . $product->product_image);
-        }
-
+        $product->deleted_by = Auth::id(); // Tag the user
+        $product->save();
+        
         $product->delete();
 
         return redirect()
@@ -161,3 +145,4 @@ class ProductController extends Controller
             ->with('success', 'Product has been deleted!');
     }
 }
+ 

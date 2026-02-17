@@ -22,41 +22,7 @@
             <form action="{{ route('users.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="row">
-                    <div class="col-lg-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h3 class="card-title">
-                                    {{ __('User Image') }}
-                                </h3>
-
-                                <img class="img-account-profile mb-2"
-                                     src="{{ asset('assets/img/demo/user-placeholder.svg') }}"
-                                     alt=""
-                                     id="image-preview"
-                                >
-
-                                <div class="small font-italic text-muted mb-2">
-                                    JPG or PNG no larger than 1 MB
-                                </div>
-
-                                <input type="file"
-                                       id="image"
-                                       name="photo"
-                                       accept="image/*"
-                                       onchange="previewImage();"
-                                       class="form-control @error('photo') is-invalid @enderror"
-                                >
-
-                                @error('photo')
-                                <div class="invalid-feedback">
-                                    {{ $message }}
-                                </div>
-                                @enderror
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-8">
+                    <div class="col-lg-12">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">
@@ -82,8 +48,18 @@
                                         <x-input type="password" name="password_confirmation" label="Password Confirmation"/>
                                     </div>
                                 </div>
+                            <hr>
+                            <div class="mb-3">
+                                    <label for="role" class="form-label">Role</label>
+                                    <select name="role_id" id="role" class="form-select">
+                                        @foreach($roles as $role)
+                                            <option value="{{ $role->id }}">
+                                                {{ $role->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
-
                             <div class="card-footer text-end">
                                 <x-button.save type="submit">
                                     {{ __('Save') }}

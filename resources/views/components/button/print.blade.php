@@ -2,7 +2,7 @@
     'route'
 ])
 
-<x-button {{ $attributes->class(['btn btn-warning']) }} route="{{ $route }}">
+<x-button {{ $attributes->class(['btn btn-success']) }} route="{{ $route }}">
     <x-icon.printer/>
 
     {{ $slot }}

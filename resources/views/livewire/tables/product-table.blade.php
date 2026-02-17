@@ -5,7 +5,6 @@
                 {{ __('Products') }}
             </h3>
         </div>
-
         <div class="card-actions btn-group">
             <div class="dropdown">
                 <a href="#" class="btn-action dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -15,6 +14,10 @@
                     <a href="{{ route('products.create') }}" class="dropdown-item">
                         <x-icon.plus/>
                         {{ __('Create Product') }}
+                    </a>
+                    <a href="{{ route('transactions.index') }}" class="dropdown-item">
+                        <x-icon.plus/>
+                        {{ __('Product Transactions') }}
                     </a>
                     <a href="{{ route('products.import.view') }}" class="dropdown-item">
                         <x-icon.plus/>
@@ -68,9 +71,9 @@
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('code')" href="#" role="button">
-                            {{ __('Code') }}
-                            @include('inclues._sort-icon', ['field' => 'code'])
+                        <a wire:click.prevent="sortBy('sku')" href="#" role="button">
+                            {{ __('SKU') }}
+                            @include('inclues._sort-icon', ['field' => 'sku'])
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
@@ -83,13 +86,6 @@
                         <a wire:click.prevent="sortBy('quantity')" href="#" role="button">
                             {{ __('Quantity') }}
                             @include('inclues._sort-icon', ['field' => 'quantity'])
-                        </a>
-                    </th>
-
-                    <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('quantity_alert')" href="#" role="button">
-                            {{ __('Quantity Alert') }}
-                            @include('inclues._sort-icon', ['field' => 'quantity_alert'])
                         </a>
                     </th>
 
@@ -108,7 +104,7 @@
                         {{ $product->name }}
                     </td>
                     <td class="align-middle text-center">
-                        {{ $product->code }}
+                        {{ $product->sku }}
                     </td>
                     <td class="align-middle text-center">
                         {{ $product->category->name }}
@@ -116,29 +112,10 @@
                     <td class="align-middle text-center">
                         {{ $product->quantity }}
                     </td>
-                    <td class="align-middle text-center"
-                        x-data="{ bgColor: 'transparent' }"
-                        x-effect="bgColor = getBgColor({{ $product->quantity }}, {{ $product->quantity_alert }})"
-                        :style="'background: ' + bgColor"
-                    >
-                        {{ $product->quantity_alert }}
-                    </td>
-
-                    <script>
-                        function getBgColor(quantity, quantity_alert) {
-                            if (quantity_alert >= quantity) {
-                                return '#f8d7da'; // Red
-                            } else if (quantity_alert === quantity - 1 || quantity_alert === quantity - 2) {
-                                return '#fff70063'; // Yellow
-                            } 
-                            return 'transparent';
-                        }
-                    </script>
-
                     <td class="align-middle text-center" style="width: 10%">
                         <x-button.show class="btn-icon" route="{{ route('products.show', $product) }}"/>
                         <x-button.edit class="btn-icon" route="{{ route('products.edit', $product) }}"/>
-                        <x-button.delete class="btn-icon" route="{{ route('products.destroy', $product) }}"/>
+                        {{-- <x-button.delete class="btn-icon" route="{{ route('products.destroy', $product) }}"/> --}}
                     </td>
                 </tr>
             @empty

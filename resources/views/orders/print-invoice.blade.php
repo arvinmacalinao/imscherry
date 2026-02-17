@@ -14,151 +14,320 @@
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
         <!-- Custom Stylesheet -->
         <link type="text/css" rel="stylesheet" href="{{ asset('assets/invoice/css/style.css') }}">
+        <style>
+            @page { 
+                
+               
+            }
+        </style>
     </head>
     <body>
-        <div class="invoice-16 invoice-content">
-            <div class="container">
+        <div class="container">
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="invoice-inner-9" id="invoice_wrapper">
                             <div class="invoice-top">
                                 <div class="row">
-                                    <div class="col-lg-6 col-sm-6">
-                                        <div class="logo">
-                                            <h1>Name Store</h1>
-                                        </div>
+                                    <div class="col-md-11 mb-5" style="text-align: end">
+                                        <br>
+                                        <span><strong>{{ $order->invoice_no }}</strong></span>
+                                        <br>
                                     </div>
-                                    <div class="col-lg-6 col-sm-6">
-                                        <div class="invoice">
-                                            <h1>
-                                                Invoice # <span>{{ $order->invoice_no }}</span>
-                                            </h1>
-                                        </div>
+                                    <div class="col-md-1" style="text-align: end">
+                                    {{-- blank space --}}
                                     </div>
                                 </div>
-                            </div>
-                            <div class="invoice-info">
+                                 <div class="row mb-1">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start">
+                                        <span></span>
+                                    </div>
+                                    <div class="col-md-3 border" style="text-align: end">
+                                        <span>Tracking No. </span>
+                                    </div>
+                                    <div class="col-md-2 border" style="text-align: end">
+                                        <span>{{ $order->tracking_number }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <div class="row mb-1">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start; padding-left: 30px;">
+                                        <span style="">{{ $order->customer_name }}</span>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                        <span>{{ $order->order_number }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <div class="row mb-5">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-7 border" style="text-align: start; padding-left: 30px;">
+                                        <small style="">{{ $order->shipping_address }}</small>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                    <div class="col-md-2 border" style="text-align: end;">
+                                        <span>{{ $order->order_date->format('F j, Y') }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                 @php 
+                                     $grandTotal = 0; 
+                                     $name = Auth::user()->name;
+                                 @endphp
+                                <div class="products-area">
+                                @foreach ($order->details as $item)
+                                @php 
+                                    $grandTotal += $item->quantity * $item->product->price; 
+                                @endphp
+                                <div class="row product-row">
+                                    <div class="col-md-1 border text-center">
+                                        {{ $item->quantity }}
+                                    </div>
+                                    <div class="col-md-7 border">
+                                        {{ $item->product->name }}
+                                    </div>
+                                    <div class="col-md-2 border text-right">
+                                        {{ number_format($item->product->price, 2) }}
+                                    </div>
+                                    <div class="col-md-2 border text-right">
+                                        {{ number_format($item->quantity * $item->product->price, 2) }}
+                                    </div>
+                                </div>
+                                @endforeach
+                                {{-- pad with empty rows so it always fills the fixed area --}}
+                                @for ($i = count($order->details); $i < 12; $i++)
+                                    <div class="row product-row">
+                                            <div class="col-md-6">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                    </div>
+                                @endfor
                                 <div class="row">
-                                    <div class="col-sm-6 mb-50">
-                                        <div class="invoice-number">
-                                            <h4 class="inv-title-1">
-                                                Invoice date:
-                                            </h4>
-                                            <p class="invo-addr-1">
-                                                {{ $order->order_date }}
-                                            </p>
-                                        </div>
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start">
+                                        <small></small>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                        <span><strong>{{ number_format($grandTotal, 2) }}</strong></span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-sm-6 mb-50">
-                                        <h4 class="inv-title-1">Customer</h4>
-                                        <p class="inv-from-1">{{ $order->customer->name }}</p>
-                                        <p class="inv-from-1">{{ $order->customer->phone }}</p>
-                                        <p class="inv-from-1">{{ $order->customer->email }}</p>
-                                        <p class="inv-from-2">{{ $order->customer->address }}</p>
+                                            {{-- 2nd roww --}}
+
+                                            <div class="col-md-12 border" style="text-align: start">
+                                                <span>&nbsp;</span>
+                                            </div>
+
+                                </div>
+                                <div class="row mb-5">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
                                     </div>
-                                    <div class="col-sm-6 text-end mb-50">
-                                        <h4 class="inv-title-1">Store</h4>
-                                        <p class="inv-from-1">Name Store</p>
-                                        <p class="inv-from-1">(+62) 123 123 123</p>
-                                        <p class="inv-from-1">email@example.com</p>
-                                        <p class="inv-from-2">Cirebon, Jawa Barat, Indonesia</p>
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-4 border" style="text-align: start">
+                                        <small>{{ $name }}</small>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                    
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <p>  <br><br><br></p>
+                                {{-- duplicate --}}
+                                <div class="row">
+                                    <div class="col-md-11 mb-5" style="text-align: end">
+                                        <br>
+                                        <span><strong>{{ $order->invoice_no }}</strong></span>
+                                        <br>
+                                    </div>
+                                    <div class="col-md-1" style="text-align: end">
+                                    {{-- blank space --}}
+                                    </div>
+                                </div>
+                                 <div class="row mb-1">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start">
+                                        <span></span>
+                                    </div>
+                                    <div class="col-md-3 border" style="text-align: end">
+                                        <span>Tracking No. </span>
+                                    </div>
+                                    <div class="col-md-2 border" style="text-align: end">
+                                        <span>{{ $order->tracking_number }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <div class="row mb-1">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start; padding-left: 30px;">
+                                        <span style="">{{ $order->customer_name }}</span>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                        <span>{{ $order->order_number }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <div class="row mb-5">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-7 border" style="text-align: start; padding-left: 30px;">
+                                        <small style="">{{ $order->shipping_address }}</small>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                    <div class="col-md-2 border" style="text-align: end;">
+                                        <span>{{ $order->order_date->format('F j, Y') }}</span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                 @php 
+                                     $grandTotal = 0; 
+                                     $name = Auth::user()->name;
+                                 @endphp
+                                <div class="products-area">
+                                @foreach ($order->details as $item)
+                                @php 
+                                    $grandTotal += $item->quantity * $item->product->price; 
+                                @endphp
+                                <div class="row product-row">
+                                    <div class="col-md-1 border text-center">
+                                        {{ $item->quantity }}
+                                    </div>
+                                    <div class="col-md-7 border">
+                                        {{ $item->product->name }}
+                                    </div>
+                                    <div class="col-md-2 border text-right">
+                                        {{ number_format($item->product->price, 2) }}
+                                    </div>
+                                    <div class="col-md-2 border text-right">
+                                        {{ number_format($item->quantity * $item->product->price, 2) }}
+                                    </div>
+                                </div>
+                                @endforeach
+                                {{-- pad with empty rows so it always fills the fixed area --}}
+                                @for ($i = count($order->details); $i < 11; $i++)
+                                    <div class="row product-row">
+                                            <div class="col-md-6">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                            <div class="col-md-2">&nbsp;</div>
+                                    </div>
+                                @endfor
+                                <div class="row">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: start">
+                                        <small></small>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                        <span><strong>{{ number_format($grandTotal, 2) }}</strong></span>
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                            {{-- 2nd roww --}}
+                                            <div class="col-md-12 border" style="text-align: start">
+                                                <span>&nbsp;</span>
+                                            </div>
+                                </div>
+                                <div class="row">
+                                    {{-- 2nd roww --}}
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: end">
+                                    </div>
+                                    <div class="col-md-4 border" style="text-align: start">
+                                        <small>{{ $name }}</small>
+                                    </div>
+                                    <div class="col-md-5 border" style="text-align: end">
+                                    
+                                    </div>
+                                    <div class="col-md-1 border" style="text-align: start">
                                     </div>
                                 </div>
                             </div>
-                            <div class="order-summary">
-                                <div class="table-outer">
-                                    <table class="default-table invoice-table">
-                                        <thead>
-                                            <tr>
-                                                <th class="align-middle">Item</th>
-                                                <th class="align-middle text-center">Price</th>
-                                                <th class="align-middle text-center">Quantity</th>
-                                                <th class="align-middle text-center">Subtotal</th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-{{--                                            @foreach ($orderDetails as $item)--}}
-                                            @foreach ($order->details as $item)
-                                            <tr>
-                                                <td class="align-middle">
-                                                    {{ $item->product->name }}
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    {{ Number::currency($item->unitcost, 'EUR') }}
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    {{ $item->quantity }}
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    {{ Number::currency($item->total, 'EUR') }}
-                                                </td>
-                                            </tr>
-                                            @endforeach
-
-                                            <tr>
-                                                <td colspan="3" class="text-end">
-                                                    <strong>
-                                                        Subtotal
-                                                    </strong>
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    <strong>
-                                                        {{ Number::currency($order->sub_total, 'EUR') }}
-                                                    </strong>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td colspan="3" class="text-end">
-                                                    <strong>Tax</strong>
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    <strong>
-                                                        {{ Number::currency($order->vat, 'EUR') }}
-                                                    </strong>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td colspan="3" class="text-end">
-                                                    <strong>Total</strong>
-                                                </td>
-                                                <td class="align-middle text-center">
-                                                    <strong>
-                                                        {{ Number::currency($order->total, 'EUR') }}
-                                                    </strong>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            {{-- <div class="invoice-informeshon-footer">
-                                <ul>
-                                    <li><a href="#">www.website.com</a></li>
-                                    <li><a href="mailto:sales@hotelempire.com">info@example.com</a></li>
-                                    <li><a href="tel:+088-01737-133959">+62 123 123 123</a></li>
-                                </ul>
-                            </div> --}}
-                        </div>
-                        <div class="invoice-btn-section clearfix d-print-none">
-                            <a href="javascript:window.print()" class="btn btn-lg btn-print">
-                                <i class="fa fa-print"></i>
-                                Print Invoice
-                            </a>
-                            <a id="invoice_download_btn" class="btn btn-lg btn-download">
-                                <i class="fa fa-download"></i>
-                                Download Invoice
-                            </a>
-                        </div>
+                        </div>        
                     </div>
                 </div>
             </div>
-        </div>
         <script src="{{ asset('assets/invoice/js/jquery.min.js') }}"></script>
         <script src="{{ asset('assets/invoice/js/jspdf.min.js') }}"></script>
         <script src="{{ asset('assets/invoice/js/html2canvas.js') }}"></script>
         <script src="{{ asset('assets/invoice/js/app.js') }}"></script>
     </body>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // only run auto-download if ?download=1 is in URL
+    if (window.location.search.includes("download=1")) {
+        const dateNow = new Date().toLocaleDateString();
+
+        var pdfWidth = 612;   // Letter size (8.5in x 11in)
+        var pdfHeight = 792;
+        var margin = 20;
+
+        html2canvas(document.querySelector("#invoice_wrapper"), {
+            allowTaint: true,
+            scale: 2,
+            useCORS: true
+        }).then(function (canvas) {
+            var imgData = canvas.toDataURL("image/jpeg", 1.0);
+            var pdf = new jsPDF("p", "pt", [pdfWidth, pdfHeight]);
+
+            var imgWidth = pdfWidth - margin * 2;
+            var pageHeight = pdfHeight - margin * 2;
+            var imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            var heightLeft = imgHeight;
+            var position = margin;
+
+            pdf.addImage(imgData, "JPG", margin, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight + margin;
+                pdf.addPage([pdfWidth, pdfHeight]);
+                pdf.addImage(imgData, "JPG", margin, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            // Save PDF then close window
+            pdf.save(`invoice-${dateNow}.pdf`);
+            
+            // Give browser a moment to finish download, then close tab
+            setTimeout(function () {
+                window.close();
+            }, 1000);
+        });
+    }
+});
+</script>
+
 </html>

@@ -37,14 +37,13 @@ final class ProductsTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Product::query()
-            ->with(['category', 'unit']);
+            ->with(['category']);
     }
 
     public function addColumns(): PowerGridColumns
     {
         return PowerGrid::columns()
             ->addColumn('id')
-            ->addColumn('image')
             ->addColumn('name')
             ->addColumn('category_id', function (Product $product){
                 return $product->category_id;
@@ -53,12 +52,7 @@ final class ProductsTable extends PowerGridComponent
                 return $product->category->name;
             })
             ->addColumn('quantity')
-            ->addColumn('unit_id')
-            ->addColumn('unit_name', function (Product $product){
-                return $product->unit->short_code;
-            })
-
-            ->addColumn('selling_price');
+            ->addColumn('price');
     }
 
     public function columns(): array
@@ -69,10 +63,6 @@ final class ProductsTable extends PowerGridComponent
                 ->bodyAttribute('text-center')
                 ->searchable()
                 ->sortable(),
-
-            Column::make('Image', 'image')
-                ->headerAttribute('text-center')
-                ->bodyAttribute('text-center'),
 
             Column::make('Name', 'name')
                 ->headerAttribute('text-center')
@@ -91,11 +81,7 @@ final class ProductsTable extends PowerGridComponent
                 ->bodyAttribute('text-center')
                 ->sortable(),
 
-            Column::make('Unit', 'unit_name')
-                ->headerAttribute('text-center')
-                ->bodyAttribute('text-center'),
-
-            Column::make('Selling Price', 'selling_price')
+            Column::make('Price', 'price')
                 ->headerAttribute('align-middle text-center')
                 ->bodyAttribute('align-middle text-center')
                 ->sortable()

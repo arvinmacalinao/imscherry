@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [
         'id',
@@ -17,12 +18,17 @@ class Unit extends Model
     protected $fillable = [
         'name',
         'slug',
-        'short_code'
+        'short_code',
+        'created_by',
+        'updated_by',
+        'deleted_by',
+        
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     public function products(): HasMany

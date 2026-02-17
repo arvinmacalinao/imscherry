@@ -24,31 +24,10 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'product_image'     => 'image|file|max:2048',
             'name'              => 'required|string',
-            'slug'              => 'required|unique:products',
             'category_id'       => 'required|integer',
-            'unit_id'           => 'required|integer',
             'quantity'          => 'required|integer',
-            'buying_price'      => 'required|integer',
-            'selling_price'     => 'required|integer',
-            'quantity_alert'    => 'required|integer',
-            'tax'               => 'nullable|numeric',
-            'tax_type'          => 'nullable|integer',
-            'notes'             => 'nullable|max:1000'
+            'price'             => 'required|numeric|min:0'
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'slug' => Str::slug($this->name, '-'),
-            'code' => IdGenerator::generate([
-                'table' => 'products',
-                'field' => 'code',
-                'length' => 4,
-                'prefix' => 'PC'
-            ])
-        ]);
     }
 }

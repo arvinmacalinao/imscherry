@@ -3,6 +3,7 @@
 @section('content')
     <div class="page-header d-print-none">
         <div class="container-xl">
+            <x-alert/>
             <div class="row g-2 align-items-center">
                 <div class="col">
                     <div class="page-pretitle">
@@ -37,7 +38,6 @@
     <div class="page-body">
         <div class="container-xl">
             <div class="row row-deck row-cards">
-
                 <div class="col-12">
                     <div class="row row-cards">
                         <div class="col-sm-6 col-lg-3">
@@ -78,7 +78,7 @@
                                                 {{ $orders }} Orders
                                             </div>
                                             <div class="text-muted">
-                                                {{ $completedOrders }} {{ __('completed') }}
+                                                {{ $completedOrders }} {{ __('shipped') }}
                                             </div>
                                         </div>
                                     </div>
@@ -98,10 +98,10 @@
                                         </div>
                                         <div class="col">
                                             <div class="font-weight-medium">
-                                                {{ $purchases }} Purchases
+                                                Total Sales
                                             </div>
                                             <div class="text-muted">
-                                                {{ $todayPurchases }} today
+                                                ₱{{ number_format($totalSales, 2) }} this month
                                             </div>
                                         </div>
                                     </div>
@@ -121,10 +121,10 @@
                                         </div>
                                         <div class="col">
                                             <div class="font-weight-medium">
-                                                {{ $quotations }} Quotations
+                                                Parcel Returned
                                             </div>
                                             <div class="text-muted">
-                                                {{ $todayQuotations }} today
+                                                {{ $returnedOrders }}
                                             </div>
                                         </div>
                                     </div>
@@ -134,8 +134,6 @@
                         </div>
                     </div>
                 </div>
-
-
             </div>
         </div>
     </div>

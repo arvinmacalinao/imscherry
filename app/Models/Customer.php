@@ -5,29 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use PowerComponents\LivewirePowerGrid\Concerns\SoftDeletes;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [
         'id',
     ];
 
     protected $fillable = [
-        'name',
-        'email',
-        'phone',
-        'address',
-        'photo',
-        'account_holder',
-        'account_number',
-        'bank_name',
+        'platform_id', 'platform_customer_id', 'name', 'email', 'phone', 'address', 'created_at', 'updated_at'
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     public function orders(): HasMany

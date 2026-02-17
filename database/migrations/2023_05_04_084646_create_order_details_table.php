@@ -22,10 +22,12 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
+            $table->string('product_name');
+            $table->string('sku');
             $table->integer('quantity');
-            $table->integer('unitcost');
-            $table->integer('total');
+            $table->decimal('unit_price', 10, 2)->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

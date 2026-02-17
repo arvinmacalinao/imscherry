@@ -12,16 +12,14 @@ class OrderDetails extends Model
     ];
 
     protected $fillable = [
-        'order_id',
-        'product_id',
-        'quantity',
-        'unitcost',
-        'total',
+        'id', 'order_id', 'product_id', 'product_name', 'sku', 'quantity', 'unit_price', 'created_at', 'updated_at', 'deleted_at', 'scanned_qty'
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+         'qty' => 'integer',
+    'scanned_qty' => 'integer',
     ];
 
     protected $with = ['product'];

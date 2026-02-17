@@ -3,10 +3,11 @@
 namespace App\Http\Requests\Order;
 
 use App\Enums\OrderStatus;
-use Gloudemans\Shoppingcart\Facades\Cart;
-use Haruncpi\LaravelIdGenerator\IdGenerator;
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use Gloudemans\Shoppingcart\Facades\Cart;
+use Illuminate\Foundation\Http\FormRequest;
+use Haruncpi\LaravelIdGenerator\IdGenerator;
 
 class OrderStoreRequest extends FormRequest
 {
@@ -19,8 +20,6 @@ class OrderStoreRequest extends FormRequest
     {
         return [
             'customer_id' => 'required',
-            'payment_type' => 'required',
-            'pay' => 'required|numeric',
         ];
     }
 
@@ -28,18 +27,16 @@ class OrderStoreRequest extends FormRequest
     {
         $this->merge([
             'order_date' => Carbon::now()->format('Y-m-d'),
-            'order_status' => OrderStatus::PENDING->value,
+            'order_number' => strtoupper(Str::random(12)),
+            'status_id' => 1,
             'total_products' => Cart::instance('order')->count(),
-            'sub_total' => Cart::instance('order')->subtotal(),
-            'vat' => Cart::instance('order')->tax(),
-            'total' => Cart::instance('order')->total(),
+            'total' => Cart::instance('order')->subtotal(),
             'invoice_no' => IdGenerator::generate([
                 'table' => 'orders',
                 'field' => 'invoice_no',
                 'length' => 10,
                 'prefix' => 'INV-',
             ]),
-            'due' => (Cart::instance('order')->total() - $this->pay),
         ]);
     }
 }

@@ -55,6 +55,12 @@
                         @include('inclues._sort-icon', ['field' => 'email'])
                     </a>
                 </th>
+                 <th scope="col" class="align-middle text-center">
+                    <a wire:click.prevent="sortBy('name')" href="#" role="button">
+                        {{ __('Role') }}
+                        @include('inclues._sort-icon', ['field' => 'name'])
+                    </a>
+                </th>
                 <th scope="col" class="align-middle text-center">
                     {{ __('Action') }}
                 </th>
@@ -71,6 +77,9 @@
                     </td>
                     <td class="align-middle">
                         {{ $user->email }}
+                    </td>
+                    <td class="align-middle">
+                        {{ optional($user->role->first())->name }}
                     </td>
                     <td class="align-middle text-center" style="width: 15%">
                         <x-button.show class="btn-icon" route="{{ route('users.show', $user) }}"/>

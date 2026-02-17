@@ -12,16 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('customers', function (Blueprint $table) {
-            $table->id();
+            $table->id(); 
+            $table->unsignedSmallInteger('platform_id')->nullable(); 
+            $table->string('platform_customer_id')->nullable();
             $table->string('name')->nullable();
-            $table->string('email')->unique()->nullable();
-            $table->string('phone')->unique()->nullable();
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
             $table->string('address')->nullable();
-            $table->string('photo')->nullable();
-            $table->string('account_holder')->nullable();
-            $table->string('account_number')->nullable();
-            $table->string('bank_name')->nullable();
             $table->timestamps();
+            $table->foreign('platform_id')->references('id')->on('platforms')->onDelete('cascade');
         });
     }
 

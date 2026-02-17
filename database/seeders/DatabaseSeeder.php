@@ -4,12 +4,15 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
-use App\Models\Order;
-use App\Models\Purchase;
 use App\Models\User;
+use App\Models\Order;
 use App\Models\Customer;
+use App\Models\Purchase;
 use App\Models\Supplier;
 use Illuminate\Database\Seeder;
+use Database\Seeders\ShopNameSeeder;
+use Database\Seeders\PlatformsSeeder;
+use Database\Seeders\ProductTransactionTypeSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,25 +22,27 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-                //UserSeeder::class,
+            //UserSeeder::class,
             CategorySeeder::class,
-            UnitSeeder::class,
-            ProductSeeder::class
+            PlatformsSeeder::class,
+            OrderStatusSeeder::class,
+            ProductTransactionTypeSeeder::class,
+            ShopNameSeeder::class
         ]);
 
-        $orders = Order::factory(50)->create();
-        $customers = Customer::factory(30)
-            ->recycle($orders)
-            ->create();
+        // $orders = Order::factory(50)->create();
+        // $customers = Customer::factory(30)
+        //     ->recycle($orders)
+        //     ->create();
 
 
-        $purchases = Purchase::factory(60)->create();
-        $suppliers = Supplier::factory(20)->create();
+        // $purchases = Purchase::factory(60)->create();
+        // $suppliers = Supplier::factory(20)->create();
 
-        $users = User::factory(10)
-            ->recycle($suppliers)
-            ->recycle($purchases)
-            ->create();
+        // $users = User::factory(10)
+        //     ->recycle($suppliers)
+        //     ->recycle($purchases)
+        //     ->create();
 
         $admin = User::factory()->create([
             'name' => 'admin',

@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Enums\PurchaseStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Purchase extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [
         'id',
@@ -24,12 +25,14 @@ class Purchase extends Model
         'total_amount',
         'created_by',
         'updated_by',
+        'deleted_by',
     ];
 
     protected $casts = [
         'date'       => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
         'status'     => PurchaseStatus::class
     ];
 

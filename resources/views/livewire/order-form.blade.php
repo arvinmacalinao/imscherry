@@ -121,13 +121,12 @@
                     </button>
                 </td>
             </tr>
-            <tr>
+            {{-- <tr>
                 <th colspan="4" class="align-middle text-end">
                     Subtotal
                 </th>
                 <td class="text-center">
-{{--                    ${{ number_format($subtotal, 2) }}--}}
-                    {{ Number::currency($subtotal, 'EUR') }}
+                    {{ Number::currency($subtotal, 'PHP') }}
                 </td>
             </tr>
             <tr>
@@ -144,13 +143,13 @@
                     </em>
                     @enderror
                 </td>
-            </tr>
+            </tr> --}}
             <tr>
                 <th colspan="4" class="align-middle text-end">
                     Total
                 </th>
                 <td class="text-center">
-                    {{ Number::currency($total, 'EUR') }}
+                    {{ Number::currency($total, 'PHP') }}
                     <input type="hidden" name="total_amount" value="{{ $total }}">
                 </td>
             </tr>

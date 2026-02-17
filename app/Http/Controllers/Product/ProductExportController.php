@@ -16,26 +16,20 @@ class ProductExportController extends Controller
 
         $product_array [] = array(
             'Product Name',
-            'Category Id',
-            'Unit Id',
-            'Product Code',
+            'Category',
+            'SKU Code',
             'Stock',
-            'Buying Price',
             'Selling Price',
-            'Product Image',
         );
 
         foreach($products as $product)
         {
             $product_array[] = array(
                 'Product Name' => $product->name,
-                'Category Id' => $product->category_id,
-                'Unit Id' => $product->unit_id,
-                'Product Code' => $product->code,
+                'Category Id' => $product->category->name,
+                'SKU Code' => $product->sku,
                 'Stock' => $product->quantity,
-                'Buying Price' =>$product->buying_price,
-                'Selling Price' =>$product->selling_price,
-                'Product Image' => $product->product_image,
+                'Selling Price' =>$product->price,
             );
         }
 

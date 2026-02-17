@@ -25,10 +25,14 @@ return new class extends Migration
                 ->comment('0=Pending, 1=Approved');
 
             $table->integer('total_amount'); // old: total_amount
-            $table->foreignIdFor(\App\Models\User::class, 'created_by');
-            $table->foreignIdFor(\App\Models\User::class, 'updated_by')
-                ->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
+            $table->softDeletes();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
         });
     }
 

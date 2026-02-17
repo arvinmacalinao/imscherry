@@ -2,47 +2,41 @@
 
 namespace App\Http\Controllers\Dashboards;
 
-use App\Enums\OrderStatus;
-use App\Http\Controllers\Controller;
-use App\Models\Category;
+use Carbon\Carbon;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Category;
 use App\Models\Purchase;
 use App\Models\Quotation;
+use App\Enums\OrderStatus;
+use App\Http\Controllers\Controller;
 
 class DashboardController extends Controller
 {
     public function index()
     {
         $orders = Order::count();
-        $completedOrders = Order::where('order_status', OrderStatus::COMPLETE)
+        $completedOrders = Order::where('status_id', 3)
+            ->count();
+
+        $currentMonth = Carbon::now()->format('Y-m'); // e.g., "2025-09"
+        $totalSales = Order::where('order_date', 'like', $currentMonth . '%')->where('status_id', 3) // matches "2025-09-01", etc.
+        ->sum('total');
+
+        $returnedOrders = Order::where('status_id', 4)->where('updated_at', 'like', $currentMonth . '%')
             ->count();
 
         $products = Product::count();
 
-        $purchases = Purchase::count();
-        $todayPurchases = Purchase::query()
-            ->where('date', today())
-            ->get()
-            ->count();
-
         $categories = Category::count();
-
-        $quotations = Quotation::count();
-        $todayQuotations = Quotation::query()
-            ->where('date', today()->format('Y-m-d'))
-            ->get()
-            ->count();
 
         return view('dashboard', [
             'products' => $products,
             'orders' => $orders,
             'completedOrders' => $completedOrders,
-            'purchases' => $purchases,
-            'todayPurchases' => $todayPurchases,
             'categories' => $categories,
-            'quotations' => $quotations,
-            'todayQuotations' => $todayQuotations,
+            'totalSales' =>$totalSales,
+            'returnedOrders' => $returnedOrders,
         ]);
     }
 }

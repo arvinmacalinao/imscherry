@@ -26,6 +26,7 @@ return new class extends Migration
             $table->integer('unitcost');
             $table->integer('total');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -5,9 +5,10 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
-            <a href="{{ url('/') }}">
+            GizTrack
+            {{-- <a href="{{ url('/') }}">
                 <img src="{{ asset('static/logo.svg') }}" width="110" height="32" alt="Tabler" class="navbar-brand-image">
-            </a>
+            </a> --}}
         </h1>
 
         <div class="navbar-nav flex-row order-md-last">
@@ -29,6 +30,9 @@
                             <path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
                         </svg>
                         Account
+                    </a>
+                    <a href="{{ route('scanlogs.index') }}" class="dropdown-item">
+                        Scanned Items
                     </a>
                     <form action="{{ route('logout') }}" method="post">
                         @csrf

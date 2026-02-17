@@ -4730,6 +4730,8 @@ table th{
 }
 /** Invoice 17 end **/
 
+/* Paper container */
+
 /** Print **/
 @media print {
     .col-sm-12 {

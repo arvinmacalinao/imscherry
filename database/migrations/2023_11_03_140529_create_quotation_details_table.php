@@ -35,6 +35,7 @@ return new class extends Migration
             $table->integer('product_tax_amount');
 
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

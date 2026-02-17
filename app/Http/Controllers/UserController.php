@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -12,35 +13,26 @@ class UserController extends Controller
 {
     public function index()
     {
-        // TODO: Select columns
-        $users = User::all();
+        $users = User::with('role')->latest()->get();
 
         return view('users.index', [
-            'users' => $users
+            'users' => $users,
         ]);
     }
 
+
     public function create()
     {
-        return view('users.create');
+        $roles = Role::orderby('name', 'asc')->get();
+
+        return view('users.create', compact('roles'));
     }
 
     public function store(StoreUserRequest $request)
     {
         $user = User::create($request->all());
 
-        /**
-         * Handle upload an image
-         */
-        if($request->hasFile('photo')){
-            $file = $request->file('photo');
-            $filename = hexdec(uniqid()).'.'.$file->getClientOriginalExtension();
-
-            $file->storeAs('profile/', $filename, 'public');
-            $user->update([
-                'photo' => $filename
-            ]);
-        }
+        $user->roles()->attach($request->role_id);
 
         return redirect()
             ->route('users.index')
@@ -56,8 +48,13 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $roles = Role::get();
+
+        $user->load('roles');
+
         return view('users.edit', [
-            'user' => $user
+            'user' => $user,
+            'roles' => $roles,
         ]);
     }
 
@@ -68,30 +65,9 @@ class UserController extends Controller
 //            $validatedData['email_verified_at'] = null;
 //        }
 
-        $user->update($request->except('photo'));
+        $user->update($request->all());
 
-        /**
-         * Handle upload image with Storage.
-         */
-        if($request->hasFile('photo')){
-
-            // Delete Old Photo
-            if($user->photo){
-                unlink(public_path('storage/profile/') . $user->photo);
-            }
-
-            // Prepare New Photo
-            $file = $request->file('photo');
-            $fileName = hexdec(uniqid()).'.'.$file->getClientOriginalExtension();
-
-            // Store an image to Storage
-            $file->storeAs('profile/', $fileName, 'public');
-
-            // Save DB
-            $user->update([
-                'photo' => $fileName
-            ]);
-        }
+        $user->roles()->sync([$request->role_id]);
 
         return redirect()
             ->route('users.index')

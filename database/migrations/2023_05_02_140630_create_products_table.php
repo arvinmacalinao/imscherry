@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('products', function (Blueprint $table) {
             $table->id();
 
-            $table->string('name');
+            $table->string('name', 500);
             $table->string('slug');
             $table->string('code')->unique()->nullable();
             //$table->string('product_barcode_symbology')->nullable();
@@ -27,17 +27,14 @@ return new class extends Migration
             $table->text('notes')->nullable();
 
             $table->string('product_image')->nullable();
-
             $table->foreignIdFor(\App\Models\Category::class)
                 ->nullable()
                 ->constrained()
 //                ->restrictOnDelete();
 //                ->cascadeOnDelete();
                 ->nullOnDelete();
-
-            $table->foreignIdFor(\App\Models\Unit::class)->constrained()
-                ->cascadeOnDelete();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

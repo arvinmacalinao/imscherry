@@ -4,11 +4,13 @@
 <div class="page-body">
     @if($products->isEmpty())
         <x-empty
-            title="No products found"
-            message="Try adjusting your search or filter to find what you're looking for."
-            button_label="{{ __('Add your first Product') }}"
-            button_route="{{ route('products.create') }}"
-        />
+        title="No products found"
+        message="Try adjusting your search or filter to find what you're looking for."
+        button_label="{{ __('Add your first Product') }}"
+        button_route="{{ route('products.create') }}"
+        button_label2="{{ __('Import Products') }}"
+        button_route2="{{ route('products.import.view') }}"
+    />
     @else
         <div class="container container-xl">
             <x-alert/>

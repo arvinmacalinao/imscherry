@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Product;
 
-use App\Http\Controllers\Controller;
-use App\Models\Product;
 use Exception;
+use Throwable;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Models\ProductRestockLog;
+use App\Http\Controllers\Controller;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProductImportController extends Controller
@@ -16,47 +18,73 @@ class ProductImportController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:xls,xlsx',
-        ]);
+{
+    $request->validate([
+        'file' => 'required|file|mimes:xls,xlsx',
+    ]);
 
-        $the_file = $request->file('file');
+    $the_file = $request->file('file');
 
-        try{
+        try {
             $spreadsheet = IOFactory::load($the_file->getRealPath());
             $sheet        = $spreadsheet->getActiveSheet();
             $row_limit    = $sheet->getHighestDataRow();
-            $column_limit = $sheet->getHighestDataColumn();
-            $row_range    = range( 2, $row_limit );
-            $column_range = range( 'J', $column_limit );
-            $startcount = 2;
-            $data = array();
-            foreach ( $row_range as $row ) {
-                $data[] = [
-                    'name'          => $sheet->getCell( 'A' . $row )->getValue(),
-                    'category_id'   => $sheet->getCell( 'B' . $row )->getValue(),
-                    'unit_id'       => $sheet->getCell( 'C' . $row )->getValue(),
-                    'code'          => $sheet->getCell( 'D' . $row )->getValue(),
-                    'quantity'      => $sheet->getCell( 'E' . $row )->getValue(),
-                    'buying_price'  => $sheet->getCell( 'F' . $row )->getValue(),
-                    'selling_price' => $sheet->getCell( 'G' . $row )->getValue(),
-                    'product_image' => $sheet->getCell( 'H' . $row )->getValue(),
-                ];
-                $startcount++;
+            $row_range    = range(2, $row_limit);
+
+            foreach ($row_range as $row) {
+                $name        = $sheet->getCell('A' . $row)->getValue();
+                $category_id = $sheet->getCell('B' . $row)->getValue();
+                $sku         = $sheet->getCell('C' . $row)->getValue();
+                $quantity    = (int) $sheet->getCell('D' . $row)->getValue();
+                $price       = (float) $sheet->getCell('E' . $row)->getValue();
+
+                if (!$sku) {
+                    continue; // skip if no SKU
+                }
+
+                // Check if product exists
+                $product = Product::where('sku', $sku)->first();
+
+                if ($product) {
+                    $oldQty = $product->quantity;
+                    $newQty = $oldQty + $quantity;
+
+                    // Update product
+                    $product->update([
+                        'quantity' => $newQty,
+                        'price'    => $price, // optional: update price too
+                        'category_id' => $category_id,
+                    ]);
+
+                    // Log restock
+                    ProductRestockLog::create([
+                        'product_id'     => $product->id,
+                        'old_quantity'   => $oldQty,
+                        'added_quantity' => $quantity,
+                        'new_quantity'   => $newQty,
+                        'user_id'        => auth()->id(), // track who did the import
+                    ]);
+
+                } else {
+                    // Create new product
+                    $product = Product::create([
+                        'name'        => $name,
+                        'sku'         => $sku,
+                        'quantity'    => $quantity,
+                        'price'       => $price,
+                        'category_id' => $category_id,
+                        'created_by'  => auth()->id(),
+                    ]);
+                }
             }
-
-            Product::insert($data);
-
-        } catch (Exception $e) {
-            // $error_code = $e->errorInfo[1];
+        } catch (Throwable $e) {
             return redirect()
                 ->route('products.index')
-                ->with('error', 'There was a problem uploading the data!');
+                ->with('error', 'Error: ' . $e->getMessage());
         }
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Data product has been imported!');
+            ->with('success', 'Products imported successfully!');
     }
 }
