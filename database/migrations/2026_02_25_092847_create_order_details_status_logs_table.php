@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Order;
+use App\Models\OrderDetails;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -12,9 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('order_status_logs', function (Blueprint $table) {
+        Schema::create('order_details_status_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(Order::class)
+            $table->foreignIdFor(OrderDetails::class)
                 ->constrained()
                 ->cascadeOnDelete();
             $table->unsignedSmallInteger('status_id')->nullable(); 
@@ -31,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('order_status_logs');
+        Schema::dropIfExists('order_details_status_logs');
     }
 };

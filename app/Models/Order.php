@@ -2,17 +2,18 @@
 
 namespace App\Models;
 
-use App\Models\ScanLog;
 use App\Models\Customer;
-use App\Models\Platform;
-use App\Models\ShopName;
-use App\Models\OrderStatus;
 use App\Models\OrderDetails;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\OrderStatus;
+use App\Models\OrderStatusLog;
+use App\Models\Platform;
+use App\Models\ScanLog;
+use App\Models\ShopName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
@@ -41,6 +42,11 @@ class Order extends Model
     }
 
     public function details(): HasMany
+    {
+        return $this->hasMany(OrderDetails::class);
+    }
+
+    public function orderDetails(): HasMany
     {
         return $this->hasMany(OrderDetails::class);
     }
@@ -87,5 +93,50 @@ class Order extends Model
     public function scanLogs()
     {
         return $this->hasMany(ScanLog::class);
+    }
+
+    public function statusLogs()
+    {
+        return $this->hasMany(OrderStatusLog::class);
+    }
+    
+    public function currentStatus()
+    {
+        return $this->belongsTo(OrderStatusLog::class, 'status_id');
+    }
+
+    public function importLog()
+    {
+        return $this->hasOne(OrderStatusLog::class)
+            ->where('status_id', 1)
+            ->latest();
+    }
+
+    public function pickedLog()
+    {
+        return $this->hasOne(OrderStatusLog::class)
+            ->where('status_id', 8)
+            ->latest();
+    }
+
+    public function qcLog()
+    {
+        return $this->hasOne(OrderStatusLog::class)
+            ->where('status_id', 2)
+            ->latest();
+    }
+
+    public function packshipLog()
+    {
+        return $this->hasOne(OrderStatusLog::class)
+            ->where('status_id', 3)
+            ->latest();
+    }
+
+    public function invoicedLog()
+    {
+        return $this->hasOne(OrderStatusLog::class)
+            ->where('status_id', 5)
+            ->latest();
     }
 }

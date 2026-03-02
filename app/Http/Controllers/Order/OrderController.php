@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers\Order;
 
-use Carbon\Carbon;
-use App\Models\Order;
-use App\Models\Product;
-use App\Models\Customer;
-use App\Models\ShopName;
-use App\Enums\OrderStatus;
-use Illuminate\Support\Str;
-use App\Models\OrderDetails;
-use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Gloudemans\Shoppingcart\Facades\Cart;
+// use App\Enums\OrderStatus;
+use App\Exports\OrderSummaryExport;
 use App\Exports\OrderSummaryExportWarehouse;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\OrderStoreRequest;
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\OrderDetails;
+use App\Models\Product;
+use App\Models\ShopName;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Gloudemans\Shoppingcart\Facades\Cart;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrderController extends Controller
 {
@@ -151,7 +153,19 @@ class OrderController extends Controller
             8 => 'bg-info',      // Picked
         ];
 
-        $order->loadMissing(['customer', 'details'])->get();
+        // Load needed relationships
+        $order->load([
+            'customer',
+            'details',
+            'details.product',
+            'importLog.actor',
+            'pickedLog.actor',
+            'statusLogs',
+            'qcLog.actor',
+            'invoicedLog.actor',
+            'packshipLog.actor',
+            'shopName',
+        ]);
 
         return view('orders.show', [
             'order' => $order,
@@ -168,21 +182,7 @@ class OrderController extends Controller
     //     return redirect()->back()->with('success', 'Order has been cancelled.');
     // }
 
-    public function cancel(Request $request, Order $order)
-    {
-        $request->validate([
-            'remarks' => 'required|string|max:255',
-        ]);
     
-        $order->update([
-            'status_id' => 6, // cancelled
-            'remarks'   => $request->remarks,
-        ]);
-    
-        return redirect()
-            ->back()
-            ->with('success', 'Order has been cancelled.');
-    }
 
     public function update(Order $order, Request $request)
     {
@@ -239,32 +239,79 @@ class OrderController extends Controller
 
         $order->update(['status_id' => 5]);
 
+        $order->statusLogs()->create([
+            'status_id' => 5,
+            'acted_by'  => auth()->id(),
+            'remarks'   => "Order Invoiced",
+        ]);
+
         $pdf = Pdf::loadView('orders.print-invoice-single', compact('order'))
         ->setPaper('letter', 'portrait');
 
         return $pdf->download('invoice-' . $order->invoice_no . '.pdf');
     }
 
+    // public function downloadMultipleInvoices(Request $request)
+    // {
+    //     $ids = $request->input('ids', []);
+
+    //     if (empty($ids)) {
+    //         return back()->with('error', 'No orders selected.');
+    //     }
+
+    //     $orders = Order::with('details.product')
+    //         ->whereIn('id', $ids)
+    //         ->get();
+
+    //     if ($orders->isEmpty()) {
+    //         return back()->with('error', 'No invoices found for selected orders.');
+    //     }
+
+    //     Order::whereIn('id', $ids)->update(['status_id' => 5]);
+
+    //     $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'));            ;
+
+    //     return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
+    // }
+    
     public function downloadMultipleInvoices(Request $request)
     {
         $ids = $request->input('ids', []);
-
+    
         if (empty($ids)) {
             return back()->with('error', 'No orders selected.');
         }
-
+    
         $orders = Order::with('details.product')
             ->whereIn('id', $ids)
             ->get();
-
+    
         if ($orders->isEmpty()) {
-            return back()->with('error', 'No invoices found for selected orders.');
+            return back()->with('error', 'No invoices found.');
         }
-
-        Order::whereIn('id', $ids)->update(['status_id' => 5]);
-
-        $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'));            ;
-
+    
+        DB::transaction(function () use ($orders, $request) {
+    
+            foreach ($orders as $order) {
+    
+                // Prevent duplicate invoicing logs
+                if ($order->status_id != 5) {
+    
+                    $order->update([
+                        'status_id' => 5
+                    ]);
+    
+                    $order->statusLogs()->create([
+                        'status_id' => 5,
+                        'acted_by'  => auth()->id(),
+                        'remarks'   => $request->remarks ?? 'Invoice generated',
+                    ]);
+                }
+            }
+        });
+    
+        $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'));
+    
         return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
     }
 
@@ -305,14 +352,114 @@ class OrderController extends Controller
     
         return Excel::download(new OrderSummaryExportWarehouse($orders), 'order_summary.xlsx');
     }
+    
 
-    public function pending(Order $order)
+    public function cancel(Request $request, Order $order)
     {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+    
         $order->update([
-            'status_id' => 7 //cancelled
+            'status_id' => 6, // Cancelled
+            'remarks'   => $request->remarks,
+        ]);
+    
+        $order->statusLogs()->create([
+            'status_id' => 6,
+            'acted_by'  => auth()->id(),
+            'remarks'   => $request->remarks,
+        ]);
+    
+        return back()->with('success', 'Order has been cancelled.');
+    }
+    
+    
+    public function pending(Request $request, Order $order)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+    
+        $order->update([
+            'status_id' => 7, // Pending
+            'remarks'   => $request->remarks,
+        ]);
+    
+        $order->statusLogs()->create([
+            'status_id' => 7,
+            'acted_by'  => auth()->id(),
+            'remarks'   => $request->remarks,
+        ]);
+    
+        return back()->with('success', 'Order is on hold.');
+    }
+
+    public function returnToWarehouse(Request $request, OrderDetails $detail)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
         ]);
 
-        return redirect()->back()->with('success', 'Order is on hold.');
+        $detail->update([
+            'status_id' => 9,
+            'remarks'   => $request->remarks,
+        ]);
+
+        // 🔥 CREATE ITEM LOG
+        $detail->detailsstatusLogs()->create([
+            'status_id' => 9,
+            'acted_by'  => auth()->id(),
+            'acted_at'  => now(),
+            'remarks'   => $request->remarks,
+        ]);
+
+        // OPTIONAL: restock product
+        $detail->product->increment('quantity', $detail->quantity);
+
+        return back()->with('success', 'Item returned to warehouse.');
+    }
+
+    public function forClaims(Request $request, OrderDetails $detail)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+
+        $detail->update([
+            'status_id' => 10,
+            'remarks'   => $request->remarks,
+        ]);
+
+        // 🔥 CREATE ITEM LOG
+        $detail->detailsstatusLogs()->create([
+            'status_id' => 10,
+            'acted_by'  => auth()->id(),
+            'acted_at'  => now(),
+            'remarks'   => $request->remarks,
+        ]);
+
+        return back()->with('success', 'Item marked for claims.');
+    }
+
+    public function qcDone(Request $request, Order $order)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+    
+        $order->update([
+            'status_id' => 2, // ✅ QC Done status
+            'remarks'   => $request->remarks,
+        ]);
+    
+        $order->statusLogs()->create([
+            'status_id' => 2,
+            'acted_by'  => auth()->id(),
+            'remarks'   => $request->remarks,
+        ]);
+    
+        return back()->with('success', 'Order marked as QC Done.');
     }
 
 }

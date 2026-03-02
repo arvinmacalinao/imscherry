@@ -212,8 +212,7 @@
             <tbody>
             @forelse ($orders as $order)
                 <tr wire:key="order-{{ $order->id }}"
-                    class="{{ $statusColors[$order->status_id] ?? '' }} cursor-pointer"
-                    onclick="window.location='{{ route('orders.show', $order) }}'"
+                    class="{{ $statusColors[$order->status_id] ?? '' }}'"
                 >
                     <td class="align-middle text-center" onclick="event.stopPropagation();">
                         <input type="checkbox" wire:model.live="selected" value="{{ $order->id }}" onclick="event.stopPropagation();">

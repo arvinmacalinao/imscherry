@@ -1,14 +1,15 @@
 <div class="p-4">
 
-    {{-- Success/Error Message --}}
+    {{-- Message --}}
     @if($message)
         <div class="mb-3 p-2 bg-green-100 text-green-800 rounded">
             {{ $message }}
         </div>
     @endif
 
-    {{-- Scan Input --}}
+    {{-- Scan Form --}}
     <form wire:submit.prevent="scanBarcode" class="d-flex gap-2">
+
         <input
             type="text"
             wire:model.defer="barcode"
@@ -24,13 +25,12 @@
             class="border p-2 w-24 text-center"
         >
 
-        <button class="bg-blue-600 px-4">
+        <button class="bg-blue-600 px-4 text-white">
             Scan
         </button>
     </form>
 
-
-    {{-- Order Items Table --}}
+    {{-- Items Table --}}
     <table class="table-auto w-full mt-4">
         <thead>
             <tr>
@@ -42,7 +42,7 @@
         </thead>
 
         <tbody>
-        @foreach($order->details as $item)
+        @foreach($this->order->details as $item)
             <tr>
                 <td>{{ $item->product->name }}</td>
                 <td>{{ $item->quantity }}</td>

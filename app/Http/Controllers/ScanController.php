@@ -134,7 +134,14 @@ class ScanController extends Controller
                     $fieldMap[$type]['by'] => $userId,
                     $fieldMap[$type]['at'] => now(),
                 ]);
-            
+
+                order->statusLogs()->create([
+                'status_id' => $statusMap[$type],
+                'acted_by'  => auth()->id(),
+                'remarks'   => 'Order has been' . $type,
+                ]);
+
+
                 // Create a scan log for each order
                 ScanLog::create([
                     'order_id'       => $order->id,

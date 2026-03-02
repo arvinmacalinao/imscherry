@@ -2,11 +2,12 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
+use App\Models\Order;
 use Gloudemans\Shoppingcart\Facades\Cart;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Validate;
+use Livewire\Component;
 
 class ScanOrders extends Component
 {

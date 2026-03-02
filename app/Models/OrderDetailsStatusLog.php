@@ -2,18 +2,18 @@
 
 namespace App\Models;
 
-use App\Models\Order;
+use App\Models\OrderDetails;
 use App\Models\OrderStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class OrderStatusLog extends Model
+class OrderDetailsStatusLog extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'order_id',
+        'order_details_id',
         'status_id',
         'acted_by',
         'acted_at',
@@ -30,9 +30,9 @@ class OrderStatusLog extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function order()
+    public function orderdetails()
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(OrderDetails::class);
     }
 
     public function status()

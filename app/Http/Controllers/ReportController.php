@@ -62,6 +62,81 @@ class ReportController extends Controller
         ]);
     }
 
+    public function return(Request $request)
+    {
+        $items = Order::with([
+                'shopName',
+                'details.product',
+                'statusLogs' => function ($q) {
+                    $q->where('status_id', 4)->latest();
+                }
+            ])
+            ->where('status_id', 4) // Cancelled orders only
+
+            // -------------------------
+            // DATE FILTER (ORDER DATE)
+            // -------------------------
+            ->when($request->filled('date_from'), function ($q) use ($request) {
+                $q->whereDate('order_date', '>=', $request->date_from);
+            })
+
+            ->when($request->filled('date_to'), function ($q) use ($request) {
+                $q->whereDate('order_date', '<=', $request->date_to);
+            })
+
+            // -------------------------
+            // SHOP FILTER
+            // -------------------------
+            ->when($request->filled('shop_id'), function ($q) use ($request) {
+                $q->where('shop_name_id', $request->shop_id);
+            })
+
+            ->latest('order_date')
+            ->get();
+
+        return view('reports.return', [
+            'items' => $items,
+            'shops' => ShopName::all(),
+        ]);
+    }
+
+    public function cancel(Request $request)
+    {
+        $items = Order::with([
+                'shopName',
+                'statusLogs' => function ($q) {
+                    $q->where('status_id', 4)->latest();
+                }
+            ])
+            ->where('status_id', 6) // Cancelled orders only
+
+            // -------------------------
+            // DATE FILTER (ORDER DATE)
+            // -------------------------
+            ->when($request->filled('date_from'), function ($q) use ($request) {
+                $q->whereDate('order_date', '>=', $request->date_from);
+            })
+
+            ->when($request->filled('date_to'), function ($q) use ($request) {
+                $q->whereDate('order_date', '<=', $request->date_to);
+            })
+
+            // -------------------------
+            // SHOP FILTER
+            // -------------------------
+            ->when($request->filled('shop_id'), function ($q) use ($request) {
+                $q->where('shop_name_id', $request->shop_id);
+            })
+
+            ->latest('order_date')
+            ->get();
+
+        return view('reports.cancel', [
+            'items' => $items,
+            'shops' => ShopName::all(),
+        ]);
+    }
+
     public function customer(Request $request)
     { 
         $customers = Customer::all();

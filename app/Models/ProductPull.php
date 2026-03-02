@@ -11,24 +11,22 @@ class ProductPull extends Model
 {
     use HasFactory;
 
-    // Define the table if it's not automatically inferred
     protected $table = 'product_pulls';
 
-    // Fillable attributes to protect against mass-assignment vulnerabilities
     protected $fillable = [
-        'product_id',  // The product being pulled
-        'employee_id', // The employee pulling the product
-        'quantity',    // The quantity of the product pulled
-        'pulled_at',   // The date and time the product was pulled
-        'status',      // The status of the pull, such as 'completed', 'pending', etc.
+        'product_id',  
+        'employee_id', 
+        'quantity',    
+        'pulled_at',   
+        'status',      
     ];
 
-    // Casting to handle data types properly
+    
     protected $casts = [
-        'pulled_at' => 'datetime', // Ensure pulled_at is treated as a date/time
+        'pulled_at' => 'datetime', 
     ];
 
-    // Relationships
+    
 
     /**
      * A product pull belongs to a product.
@@ -46,7 +44,6 @@ class ProductPull extends Model
         return $this->belongsTo(User::class, 'employee_id');
     }
     
-    // Scopes (Optional)
     
     /**
      * Scope to filter pulls by product ID.

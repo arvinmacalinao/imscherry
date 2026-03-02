@@ -79,7 +79,7 @@
                         {{ $user->email }}
                     </td>
                     <td class="align-middle">
-                        {{ optional($user->role->first())->name }}
+                        {{ optional($user->roles->first())->name }}
                     </td>
                     <td class="align-middle text-center" style="width: 15%">
                         <x-button.show class="btn-icon" route="{{ route('users.show', $user) }}"/>

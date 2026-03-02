@@ -144,6 +144,12 @@
                                     <a class="dropdown-item" href="{{ route('reports.categories') }}">
                                         {{ __('Category Report') }}
                                     </a>
+                                     <a class="dropdown-item" href="{{ route('cancel.report') }}">
+                                        {{ __('Order Cancellation Report') }}
+                                    </a>
+                                     <a class="dropdown-item" href="{{ route('return.report') }}">
+                                        {{ __('Order Returned Report') }}
+                                    </a>
                                 </div>
                             </div>
                         </div>

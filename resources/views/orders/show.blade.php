@@ -10,43 +10,97 @@
                             {{ __('Order Details') }}
                         </h3>
                     </div>
-
-                    <div class="card-actions btn-actions">
+                    <div class="card-actions">
                         <div class="dropdown">
-                            <a href="#" class="btn-action dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><!-- Download SVG icon from http://tabler-icons.io/i/dots-vertical -->
-                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M12 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M12 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path></svg>
+                            <a href="#" class="btn-action dropdown-toggle text-light" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <x-icon.vertical-dots/>
                             </a>
-                            <div class="dropdown-menu dropdown-menu-end" style="">
-                                <form action="{{ route('orders.cancel', $order) }}"
-                                      method="POST"
-                                      onsubmit="return cancelWithRemarks(this)">
-                                    @csrf
-                                    @method('put')
-                                                            
-                                    <input type="hidden" name="remarks">
-                                                            
-                                    <button type="submit" class="dropdown-item text-danger">
-                                        <!-- Cancel icon -->
-                                        <svg xmlns="http://www.w3.org/2000/svg"
-                                             width="24" height="24"
-                                             viewBox="0 0 24 24"
-                                             stroke-width="2"
-                                             stroke="currentColor"
-                                             fill="none">
-                                            <path d="M18 6l-12 12"/>
-                                            <path d="M6 6l12 12"/>
-                                        </svg>
-                                    
-                                        {{ __('Cancel Order') }}
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
+                            <div class="dropdown-menu dropdown-menu-end">
+                            @if($order->status_id == 8)
+                               {{-- ✅ QC DONE --}}
+                               <form action="{{ route('orders.qcDone', $order) }}"
+                                     method="POST"
+                                     onsubmit="return submitWithRemarks(this, 'Please enter QC remarks:')">
+                                   @csrf
+                                   @method('put')
 
-                        <x-action.close route="{{ route('orders.index') }}"/>
+                                   <input type="hidden" name="remarks">
+
+                                   <button type="submit"
+                                           class="dropdown-item text-success d-flex align-items-center gap-2">
+
+                                       {{-- Check icon --}}
+                                       <svg xmlns="http://www.w3.org/2000/svg"
+                                            width="18" height="18"
+                                            viewBox="0 0 24 24"
+                                            stroke-width="2"
+                                            stroke="currentColor"
+                                            fill="none">
+                                           <path d="M5 12l5 5l10 -10"/>
+                                       </svg>
+                                   
+                                       <span>QC Done</span>
+                                   </button>
+                               </form>
+                            <div class="dropdown-divider"></div>
+                            @endif
+                            {{-- 🔴 Cancel Order --}}
+                            <form action="{{ route('orders.cancel', $order) }}"
+                                  method="POST"
+                                  onsubmit="return submitWithRemarks(this, 'Please enter cancellation remarks:')">
+                                @csrf
+                                @method('put')
+                        
+                                <input type="hidden" name="remarks">
+                        
+                                <button type="submit"
+                                        class="dropdown-item text-danger d-flex align-items-center gap-2">
+                        
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         width="18" height="18"
+                                         viewBox="0 0 24 24"
+                                         stroke-width="2"
+                                         stroke="currentColor"
+                                         fill="none">
+                                        <path d="M18 6l-12 12"/>
+                                        <path d="M6 6l12 12"/>
+                                    </svg>
+                                
+                                    <span>Cancel Order</span>
+                                </button>
+                            </form>
+                        
+                            <div class="dropdown-divider"></div>
+                        
+                            {{-- 🟡 Pending Order --}}
+                            <form action="{{ route('orders.pending', $order) }}"
+                                  method="POST"
+                                  onsubmit="return submitWithRemarks(this, 'Please enter pending remarks:')">
+                                @csrf
+                                @method('put')
+                        
+                                <input type="hidden" name="remarks">
+                        
+                                <button type="submit"
+                                        class="dropdown-item d-flex align-items-center gap-2">
+                        
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         width="18" height="18"
+                                         viewBox="0 0 24 24"
+                                         stroke-width="2"
+                                         stroke="currentColor"
+                                         fill="none">
+                                        <circle cx="12" cy="12" r="9"/>
+                                        <path d="M12 7v5l3 3"/>
+                                    </svg>
+                                
+                                    <span>Set as Pending</span>
+                                </button>
+                            </form>
+                        </div>
+                        </div>
                     </div>
                 </div>
-
                 <div class="card-body">
                     <div class="row row-cards mb-3">
                         <div class="col">
@@ -108,48 +162,191 @@
                             <input type="textarea" id="remarks" class="form-control" value="{{ $order->remarks ?? 'N/A' }}" disabled>
                         </div>
                     </div>
+                    <hr>
+                    <div class="row row-cards mb-3">
+                        <div class="col">
+                            <label class="form-label required">
+                                {{ __('Imported by') }}
+                            </label>
+                        
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="{{ $order->importLog?->actor?->name ?? '-' }}"
+                                disabled
+                            >
+                        </div>
+                        <div class="col">
+                            <label class="form-label required">
+                                {{ __('Invoiced By') }}
+                            </label>
+                        
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="{{ $order->invoicedLog?->actor?->name ?? '-' }}"
+                                disabled
+                            >
+                        </div>
+                        <div class="col">
+                            <label class="form-label required">
+                                {{ __('Picked By') }}
+                            </label>
+                        
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="{{ $order->pickedLog?->actor?->name ?? '-' }}"
+                                disabled
+                            >
+                        </div>
+                        <div class="col">
+                            <label class="form-label required">
+                                {{ __('QC By') }}
+                            </label>
+                        
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="{{ $order->qcLog?->actor?->name ?? '-' }}"
+                                disabled
+                            >
+                        </div>
+                        <div class="col">
+                            <label class="form-label required">
+                                {{ __('Packed/Shipped by') }}
+                            </label>
+                        
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="{{ $order->packshipLog?->actor?->name ?? '-' }}"
+                                disabled
+                            >
+                        </div>
+                    </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-striped table-bordered align-middle">
+                    <div class="table-responsive" style="overflow-x: hidden;">
+                        <table class="table table-striped table-bordered align-middle w-100"
+                               style="table-layout: fixed;">
+                                        
                             <thead class="thead-light">
                             <tr>
-                                <th scope="col" class="align-middle text-center">No.</th>
-                                <th scope="col" class="align-middle text-center">Product Name</th>
-                                <th scope="col" class="align-middle text-center">Product Code</th>
-                                <th scope="col" class="align-middle text-center">Quantity</th>
-                                <th scope="col" class="align-middle text-center">Price</th>
-                                <th scope="col" class="align-middle text-center">Total</th>
+                                <th class="text-center" style="width: 70px;">No.</th>
+                                <th class="text-center" style="width: 240px;">Product Name</th>
+                                <th class="text-center" style="width: 160px;">Product Code</th>
+                                <th class="text-center" style="width: 110px;">Quantity</th>
+                                <th class="text-center" style="width: 130px;">Price</th>
+                                <th class="text-center" style="width: 150px;">Total</th>
+                            
+                                @if (in_array($order->status_id, [4, 5]))
+                                    <th class="text-center" style="width: 160px;">Action</th>
+                                @endif
                             </tr>
                             </thead>
+                        
                             <tbody>
-                            @foreach ($order->details as $item)
+                            {{-- @php
+                                dd($order->details);
+                            @endphp --}}
+                            @forelse ($order->details as $item)
                                 <tr>
-                                    <td class="align-middle text-center">
-                                        {{ $loop->iteration  }}
+                                
+                                    {{-- No --}}
+                                    <td class="text-center">
+                                        {{ $loop->iteration }}
                                     </td>
-                                    <td class="align-middle text-center">
-                                        {{ $item->product->name }}
+                                
+                                    {{-- Product Name (wrap enabled) --}}
+                                    <td class="text-start text-wrap"
+                                        style="word-break: break-word;">
+                                        {{ $item->product->name ?? '-' }}
                                     </td>
-                                    <td class="align-middle text-center">
-                                        {{ $item->product->sku }}
+                                
+                                    {{-- SKU --}}
+                                    <td class="text-center">
+                                        {{ $item->product->sku ?? '-' }}
                                     </td>
-                                    <td class="align-middle text-center">
+                                
+                                    {{-- Quantity --}}
+                                    <td class="text-center">
                                         {{ $item->quantity }}
                                     </td>
-                                    <td class="align-middle text-center">
-                                        {{ number_format($item->product->price, 2) ?? '' }}
+                                
+                                    {{-- Price --}}
+                                    <td class="text-center">
+                                        {{ number_format($item->product->price ?? 0, 2) }}
                                     </td>
-                                    <td class="align-middle text-center">
-                                        {{ number_format($item->quantity * $item->product->price, 2) }}
+                                
+                                    {{-- Total --}}
+                                    <td class="text-center">
+                                        {{ number_format(($item->quantity * ($item->product->price ?? 0)), 2) }}
+                                    </td>
+                                
+                                    {{-- 🆕 ACTION COLUMN --}}
+                                    @if ($order->status_id == 4)
+                                        <td class="text-center">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                    data-bs-toggle="dropdown"
+                                                    aria-expanded="false">
+                                                Action
+                                                                </button>
+                                                            
+                                                                <div class="dropdown-menu dropdown-menu-end">
+                                                                
+                                                {{-- Returned to Warehouse --}}
+                                                <form method="POST"
+                                                      action="">
+                                                      {{-- route('returns.to-warehouse', $item->id) --}}
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="dropdown-item d-flex align-items-center gap-2">
+                                                        <span>📦</span>
+                                                        <span>Returned to Warehouse</span>
+                                                    </button>
+                                                </form>
+                                            
+                                                <div class="dropdown-divider"></div>
+                                            
+                                                {{-- Claims --}}
+                                                <form method="POST"
+                                                      action="">
+                                                      {{-- route('returns.claim', $item->id) --}}
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="dropdown-item text-danger d-flex align-items-center gap-2">
+                                                        <span>⚠️</span>
+                                                        <span>Claims</span>
+                                                    </button>
+                                                </form>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    {{-- Example: Status 5 (Invoiced) — Optional Actions --}}
+                                    @elseif ($order->status_id == 5)
+                                        <td class="text-center">
+                                            <span class="badge bg-success">Invoiced</span>
+                                        </td>
+                                    @endif
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        No order items found
                                     </td>
                                 </tr>
-                            @endforeach
+                            @endforelse
                             </tbody>
                         </table>
+                         @if ($order->status_id == 4)
+                            <div style="height: 150px;"></div>
+                        @endif
                     </div>
                 </div>
             </div>
-            <br>
+            <br>    
+            @if($order->status_id == 5)
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">
@@ -158,19 +355,20 @@
                 </div>
                 <livewire:order-scanner :order="$order" />
             </div>
+            @endif
         </div>
     </div>
 @endsection
 <script>
-function cancelWithRemarks(form) {
-    const remarks = prompt('Please enter cancellation remarks:');
+function submitWithRemarks(form, message) {
+    const remarks = prompt(message);
 
     if (remarks === null || remarks.trim() === '') {
-        alert('Cancellation remarks are required.');
+        alert('Remarks are required.');
         return false;
     }
 
-    form.querySelector('input[name="remarks"]').value = remarks;
+    form.querySelector('input[name="remarks"]').value = remarks.trim();
     return true;
 }
 </script>

@@ -182,35 +182,94 @@ class OrderTable extends Component
         );
     }
 
-
     public function render()
     {
         \Log::info('Filtering by status ID: ' . $this->orderStatus);
-
+    
+        $user = auth()->user();
+    
+        // ✅ Default = all statuses
+        $allowedStatuses = null;
+    
+        // Accounting restriction
+        if ($user->hasRole('admin') || $user->hasRole('ecom')) {
+        $allowedStatuses = null; // see everything
+        }
+        else if ($user->hasRole('accounting')) {
+            $allowedStatuses = [1, 5]; // Imported + Invoiced
+        }
+        else if($user->hasRole('warehouse')){
+            $allowedStatuses = [5, 8];
+        }
+        else if($user->hasRole('qc')){
+            $allowedStatuses = [8, 2];
+        }
+        else if($user->hasRole('Packer')){
+            $allowedStatuses = [2, 3];
+        }
+    
         $orders = Order::query()
             ->with(['status', 'customer', 'details', 'shopName'])
+    
+            // 🔒 ROLE-BASED RESTRICTION
+            ->when($allowedStatuses, function ($query) use ($allowedStatuses) {
+                $query->whereIn('status_id', $allowedStatuses);
+            })
+    
+            // 🎯 UI status filter (still works but within allowed)
             ->when($this->orderStatus, function ($query) {
                 $query->where('status_id', $this->orderStatus);
             })
+    
             ->when($this->shopFilter, fn($q) =>
-                    $q->where('shop_name_id', $this->shopFilter)
-                )
-                
+                $q->where('shop_name_id', $this->shopFilter)
+            )
+    
             ->when($this->date_from && $this->date_to, function ($query) {
-            $query->whereBetween('order_date', [
-                $this->date_from . ' 00:00:00',
+                $query->whereBetween('order_date', [
+                    $this->date_from . ' 00:00:00',
                     $this->date_to . ' 23:59:59'
                 ]);
             })
-
+    
             ->search($this->search)
             ->orderBy($this->sortField, $this->sortAsc ? 'asc' : 'desc')
             ->paginate($this->perPage);
-
+    
         return view('livewire.tables.order-table', [
             'orders' => $orders,
         ]);
     }
+
+    //WORKING BEFORE USER ROLES
+    // public function render()
+    // {
+    //     \Log::info('Filtering by status ID: ' . $this->orderStatus);
+
+    //     $orders = Order::query()
+    //         ->with(['status', 'customer', 'details', 'shopName'])
+    //         ->when($this->orderStatus, function ($query) {
+    //             $query->where('status_id', $this->orderStatus);
+    //         })
+    //         ->when($this->shopFilter, fn($q) =>
+    //                 $q->where('shop_name_id', $this->shopFilter)
+    //             )
+                
+    //         ->when($this->date_from && $this->date_to, function ($query) {
+    //         $query->whereBetween('order_date', [
+    //             $this->date_from . ' 00:00:00',
+    //                 $this->date_to . ' 23:59:59'
+    //             ]);
+    //         })
+
+    //         ->search($this->search)
+    //         ->orderBy($this->sortField, $this->sortAsc ? 'asc' : 'desc')
+    //         ->paginate($this->perPage);
+
+    //     return view('livewire.tables.order-table', [
+    //         'orders' => $orders,
+    //     ]);
+    // }
 
 
 

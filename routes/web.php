@@ -140,19 +140,31 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('warehouse/report', [ReportController::class, 'warehouse'])->name('warehouse.report');
     Route::get('sales/report', [ReportController::class, 'sales'])->name('sales.report');
+    Route::get('cancel/report', [ReportController::class, 'cancel'])->name('cancel.report');
+    Route::get('return/report', [ReportController::class, 'return'])->name('return.report');
     Route::get('customer/report', [ReportController::class, 'customer'])->name('customer.report');
     Route::get('/warehouse/export', [ReportController::class, 'export_warehouse'])->name('warehouse.export');
     Route::get('/sales/export', [ReportController::class, 'export_sales'])->name('sales.export');
     Route::get('/customer/export', [ReportController::class, 'export_customer'])->name('customer.export');
+    Route::get('/cancel/export', [ReportController::class, 'export_cancel'])->name('cancel.export');
+    Route::get('/return/export', [ReportController::class, 'export_return'])->name('return.export');
 
     Route::prefix('reports')->group(function () {
     Route::get('/categories', [ReportController::class, 'categories'])
         ->name('reports.categories');
     });
 
+    Route::put('/orders/{order}/qc-done', [OrderController::class, 'qcDone'])
+    ->name('orders.qcDone');
 
-
-
+    //return to warehouse 
+    Route::put('/order-details/{detail}/return',
+        [OrderController::class, 'returnToWarehouse'])
+        ->name('details.return');
+    //for claims
+    Route::put('/order-details/{detail}/claim',
+    [OrderController::class, 'forClaims'])
+    ->name('details.claim');
 
 
     Route::get('/scanned-items', function () {

@@ -6,37 +6,78 @@ use Carbon\Carbon;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Category;
-use App\Models\Purchase;
-use App\Models\Quotation;
-use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::count();
+        // -------------------------
+        // PERIOD FILTER (default = month)
+        // -------------------------
+        $period = $request->get('period', 'month');
+
+        switch ($period) {
+
+            case 'today':
+                $start = Carbon::today();
+                $end   = Carbon::today()->endOfDay();
+                break;
+
+            case 'custom':
+                $start = Carbon::parse($request->start_date ?? Carbon::today());
+                $end   = Carbon::parse($request->end_date ?? Carbon::today())->endOfDay();
+                break;
+
+            default: // month
+                $start = Carbon::now()->startOfMonth();
+                $end   = Carbon::now()->endOfMonth();
+        }
+
+        // -------------------------
+        // ORDERS (THIS PERIOD)
+        // -------------------------
+        $orders = Order::whereBetween('order_date', [$start, $end])
+            ->count();
+
+        // -------------------------
+        // COMPLETED / SHIPPED
+        // -------------------------
         $completedOrders = Order::where('status_id', 3)
+            ->whereBetween('order_date', [$start, $end])
             ->count();
 
-        $currentMonth = Carbon::now()->format('Y-m'); // e.g., "2025-09"
-        $totalSales = Order::where('order_date', 'like', $currentMonth . '%')->where('status_id', 3) // matches "2025-09-01", etc.
-        ->sum('total');
+        // -------------------------
+        // TOTAL SALES (THIS PERIOD)
+        // -------------------------
+        $totalSales = Order::where('status_id', 3)
+            ->whereBetween('order_date', [$start, $end])
+            ->sum('total');
 
-        $returnedOrders = Order::where('status_id', 4)->where('updated_at', 'like', $currentMonth . '%')
+        // -------------------------
+        // PARCEL RETURNED (THIS PERIOD)
+        // -------------------------
+        $returnedOrders = Order::where('status_id', 4)
+            ->whereBetween('updated_at', [$start, $end])
             ->count();
 
-        $products = Product::count();
-
+        // -------------------------
+        // STATIC COUNTS
+        // -------------------------
+        $products   = Product::count();
         $categories = Category::count();
 
-        return view('dashboard', [
-            'products' => $products,
-            'orders' => $orders,
-            'completedOrders' => $completedOrders,
-            'categories' => $categories,
-            'totalSales' =>$totalSales,
-            'returnedOrders' => $returnedOrders,
-        ]);
+        return view('dashboard', compact(
+            'products',
+            'orders',
+            'completedOrders',
+            'categories',
+            'totalSales',
+            'returnedOrders',
+            'period',
+            'start',
+            'end'
+        ));
     }
 }

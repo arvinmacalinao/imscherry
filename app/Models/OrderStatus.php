@@ -3,8 +3,9 @@
 namespace App\Models;
 
 use App\Models\Order;
-use Illuminate\Database\Eloquent\Model;
+use App\Models\OrderStatusLog;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class OrderStatus extends Model
 {
@@ -20,4 +21,11 @@ class OrderStatus extends Model
 	{
 	    return $this->hasMany(Order::class);
 	}
+
+	public function logs()
+	{
+	    return $this->hasMany(OrderStatusLog::class, 'status_id');
+	}
+
+	
 }

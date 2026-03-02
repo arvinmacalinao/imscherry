@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers\Product;
 
-use Exception;
-use Throwable;
-use App\Models\Product;
-use Illuminate\Http\Request;
-use App\Models\ProductRestockLog;
 use App\Http\Controllers\Controller;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductRestockLog;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Throwable;
 
 class ProductImportController extends Controller
 {
@@ -18,41 +20,53 @@ class ProductImportController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:xls,xlsx',
-    ]);
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xls,xlsx',
+        ]);
 
-    $the_file = $request->file('file');
+        $the_file = $request->file('file');
 
         try {
             $spreadsheet = IOFactory::load($the_file->getRealPath());
             $sheet        = $spreadsheet->getActiveSheet();
             $row_limit    = $sheet->getHighestDataRow();
-            $row_range    = range(2, $row_limit);
+            $row_range    = range(2, $row_limit); // Skip header
 
             foreach ($row_range as $row) {
-                $name        = $sheet->getCell('A' . $row)->getValue();
-                $category_id = $sheet->getCell('B' . $row)->getValue();
-                $sku         = $sheet->getCell('C' . $row)->getValue();
-                $quantity    = (int) $sheet->getCell('D' . $row)->getValue();
-                $price       = (float) $sheet->getCell('E' . $row)->getValue();
+
+                $name         = trim($sheet->getCell('A' . $row)->getValue());
+                $categoryName = trim($sheet->getCell('B' . $row)->getValue());
+                $sku          = trim($sheet->getCell('C' . $row)->getValue());
+                $quantity     = (int) $sheet->getCell('D' . $row)->getValue();
+                $price        = (float) $sheet->getCell('E' . $row)->getValue();
 
                 if (!$sku) {
-                    continue; // skip if no SKU
+                    continue; // Skip rows without SKU
                 }
 
-                // Check if product exists
+                $slug = Str::slug($categoryName);
+
+                $category = Category::where('slug', $slug)->first();
+
+                if (!$category) {
+                    throw new Exception("Category not found: {$categoryName} (Row {$row})");
+                }
+
+                $category_id = $category->id;
+
                 $product = Product::where('sku', $sku)->first();
 
                 if ($product) {
+
+                    // Existing product → restock
                     $oldQty = $product->quantity;
                     $newQty = $oldQty + $quantity;
 
-                    // Update product
                     $product->update([
-                        'quantity' => $newQty,
-                        'price'    => $price, // optional: update price too
+                        'name'        => $name,
+                        'quantity'    => $newQty,
+                        'price'       => $price,
                         'category_id' => $category_id,
                     ]);
 
@@ -62,12 +76,13 @@ class ProductImportController extends Controller
                         'old_quantity'   => $oldQty,
                         'added_quantity' => $quantity,
                         'new_quantity'   => $newQty,
-                        'user_id'        => auth()->id(), // track who did the import
+                        'user_id'        => auth()->id(),
                     ]);
 
                 } else {
-                    // Create new product
-                    $product = Product::create([
+
+                    // New product
+                    Product::create([
                         'name'        => $name,
                         'sku'         => $sku,
                         'quantity'    => $quantity,
@@ -77,10 +92,12 @@ class ProductImportController extends Controller
                     ]);
                 }
             }
+
         } catch (Throwable $e) {
+            dd($e->getMessage());
             return redirect()
                 ->route('products.index')
-                ->with('error', 'Error: ' . $e->getMessage());
+                ->with('error', 'Import failed: ' . $e->getMessage());
         }
 
         return redirect()

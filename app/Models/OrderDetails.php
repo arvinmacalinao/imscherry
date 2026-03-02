@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\OrderDetailsStatusLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ class OrderDetails extends Model
     ];
 
     protected $fillable = [
-        'id', 'order_id', 'product_id', 'product_name', 'sku', 'quantity', 'unit_price', 'created_at', 'updated_at', 'deleted_at', 'scanned_qty'
+        'id', 'order_id', 'product_id', 'product_name', 'sku', 'quantity', 'unit_price', 'created_at', 'updated_at', 'deleted_at', 'scanned_qty', 'tracking_number'
     ];
 
     protected $casts = [
@@ -33,4 +34,10 @@ class OrderDetails extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    public function detailsstatusLogs()
+    {
+        return $this->hasMany(OrderDetailsStatusLog::class);
+    }
 }
+
