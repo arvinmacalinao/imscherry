@@ -51,7 +51,7 @@ Route::middleware(['auth', 'role:accounting'])->group(function () {
     });
 
 Route::middleware(['auth'])->group(function () {
-    
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Route::get('/', [DashboardController::class, 'index'])->name('dashboard');ad
 
@@ -86,7 +86,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/export', [ProductExportController::class, 'create'])->name('products.export.store');
     Route::resource('/products', ProductController::class);
 
-   
+
 
     // Route Orders
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -157,12 +157,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/orders/{order}/qc-done', [OrderController::class, 'qcDone'])
     ->name('orders.qcDone');
 
-    //return to warehouse 
-    Route::put('/order-details/{detail}/return',
+    //return to warehouse
+    Route::post('/order-details/{detail}/return',
         [OrderController::class, 'returnToWarehouse'])
         ->name('details.return');
     //for claims
-    Route::put('/order-details/{detail}/claim',
+    Route::post('/order-details/{detail}/claim',
     [OrderController::class, 'forClaims'])
     ->name('details.claim');
 
@@ -186,16 +186,16 @@ Route::middleware(['auth'])->group(function () {
 
 
     Route::prefix('transactions')->name('transactions.')->group(function () {
-    
+
         Route::get('/', [ProductTransactionController::class, 'index'])
             ->name('index');
-        
+
         Route::get('/create', [ProductTransactionController::class, 'create'])
             ->name('create');
-        
+
         Route::post('/store', [ProductTransactionController::class, 'store'])
             ->name('store');
-        
+
         Route::get('/{batch}', [ProductTransactionController::class, 'show'])
             ->name('show');
     });

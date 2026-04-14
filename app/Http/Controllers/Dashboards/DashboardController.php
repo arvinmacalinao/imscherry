@@ -38,21 +38,21 @@ class DashboardController extends Controller
         // -------------------------
         // ORDERS (THIS PERIOD)
         // -------------------------
-        $orders = Order::whereBetween('order_date', [$start, $end])
+        $orders = Order::whereBetween('created_at', [$start, $end])
             ->count();
 
         // -------------------------
         // COMPLETED / SHIPPED
         // -------------------------
         $completedOrders = Order::where('status_id', 3)
-            ->whereBetween('order_date', [$start, $end])
+            ->whereBetween('created_at', [$start, $end])
             ->count();
 
         // -------------------------
         // TOTAL SALES (THIS PERIOD)
         // -------------------------
         $totalSales = Order::where('status_id', 3)
-            ->whereBetween('order_date', [$start, $end])
+            ->whereBetween('created_at', [$start, $end])
             ->sum('total');
 
         // -------------------------
@@ -61,6 +61,28 @@ class DashboardController extends Controller
         $returnedOrders = Order::where('status_id', 4)
             ->whereBetween('updated_at', [$start, $end])
             ->count();
+
+         // -------------------------
+        // PENDING (status_id = 8)
+        // -------------------------
+        $pendingOrders = Order::where('status_id', 8)
+            ->whereBetween('created_at', [$start, $end])
+            ->count();
+
+        // -------------------------
+        // FOR CLAIMS (status_id = 9)
+        // -------------------------
+        $forClaimsOrders = Order::where('status_id', 9)
+            ->whereBetween('created_at', [$start, $end])
+            ->count();
+
+        // -------------------------
+        // REFUNDED (status_id = 10)
+        // -------------------------
+        $refundedOrders = Order::where('status_id', 10)
+            ->whereBetween('updated_at', [$start, $end])
+            ->count();
+
 
         // -------------------------
         // STATIC COUNTS
@@ -72,6 +94,9 @@ class DashboardController extends Controller
             'products',
             'orders',
             'completedOrders',
+            'pendingOrders',
+            'forClaimsOrders',
+            'refundedOrders',
             'categories',
             'totalSales',
             'returnedOrders',

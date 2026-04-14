@@ -94,6 +94,16 @@
 
                                     <div class="col-sm-6 col-md-6">
                                         <x-input type="number"
+                                                 label="SKU Code"
+                                                 name="sku"
+                                                 id="sku"
+                                                 placeholder="0"
+                                                 value="{{ old('sku') }}"
+                                        />
+                                    </div>
+
+                                    <div class="col-sm-6 col-md-6">
+                                        <x-input type="number"
                                                  label="Selling Price"
                                                  name="price"
                                                  id="price"

@@ -113,6 +113,48 @@
             </div>
         </div>
 
+        {{-- Pending --}}
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="font-weight-medium">
+                        Pending Orders
+                    </div>
+                    <div class="text-muted">
+                        {{ $pendingOrders }} this {{ $period }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- for claims --}}
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="font-weight-medium">
+                        For Claims
+                    </div>
+                    <div class="text-muted">
+                        {{ $forClaimsOrders }} this {{ $period }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- refunded --}}
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="font-weight-medium">
+                        Refunded Orders
+                    </div>
+                    <div class="text-muted">
+                        {{ $refundedOrders }} this {{ $period }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 </div>

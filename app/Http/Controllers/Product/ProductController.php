@@ -42,13 +42,13 @@ class ProductController extends Controller
 
     public function store(StoreProductRequest $request)
     {
-        $existingProduct = Product::where('sku', $request->get('sku'))->first();
+        // $existingProduct = Product::where('sku', $request->get('sku'))->first();
         
-        if ($existingProduct) {
-            $newSKU = $this->generateUniqueCode($existingProduct);
+        // if ($existingProduct) {
+        //     $newSKU = $this->generateUniqueCode($existingProduct);
             
-            $request->merge(['sku' => $newSKU]);
-        }
+        //     $request->merge(['sku' => $newSKU]);
+        // }
         try {
             $product = Product::create($request->all());
 

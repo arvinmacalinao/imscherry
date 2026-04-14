@@ -16,12 +16,14 @@ class ProductTransactionController extends Controller
     public function index()
     {
          $batches = ProductTransactionBatch::with('type')->with('user_created')->get();
+         $types = ProductTransactionType::all();
 
          $products = Product::get();
 
         return view('products.transactions.index', [
             'batches' => $batches,
             'products' => $products,
+            'types' => $types,
         ]);
     }
 
@@ -117,15 +119,13 @@ class ProductTransactionController extends Controller
             // Determine new quantity based on transaction type
             switch ($type) {
                 case 1: // add
-                case 3: // transfer_in
-                case 6: // returned
+                case 4: // transfer_in
+                case 3: // returned
                     $newQty = $oldQty + $change;
                     break;
 
                 case 2: // remove
-                case 4: // transfer_out
-                case 5: // borrowed
-                case 7: // free (deduction)
+                case 5: // transfer_out
                     $newQty = $oldQty - $change;
                     break;
 

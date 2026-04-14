@@ -9,13 +9,14 @@ use App\Models\ScanLog;
 use App\Models\ProductPull;
 use Illuminate\Http\Request;
 use Gloudemans\Shoppingcart\Facades\Cart;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ScanController extends Controller
 {
     /**
      * Show scan page dynamically (ship / cancelled / return)
      */
-    
+
     public function showScanPage($type)
     {
         $cartInstance = 'order_' . $type;
@@ -91,58 +92,53 @@ class ScanController extends Controller
         return back()->with('success', "Order {$trackingOrOrder} added to {$type} scan list.");
     }
 
-    /**
-     * Confirm scanned orders dynamically (ship / cancelled / return)
-     */
+
     public function confirm_scans(Request $request, $type)
     {
         $cartInstance = 'order_' . $type;
-    
+
         $statusMap = [
             'ship'      => 3,
-            'cancelled' => 6, // updated
+            'cancelled' => 6,
             'return'    => 4,
         ];
-    
+
         $fieldMap = [
             'ship'      => ['by' => 'shipped_by', 'at' => 'shipped_at'],
-            'cancelled' => ['by' => 'cancelled_by', 'at' => 'cancelled_at'], // updated
+            'cancelled' => ['by' => 'cancelled_by', 'at' => 'cancelled_at'],
             'return'    => ['by' => 'returned_by','at' => 'returned_at'],
         ];
-    
-        if (!isset($statusMap[$type]) || !isset($fieldMap[$type])) {
+
+        if (!isset($statusMap[$type])) {
             return back()->with('error', 'Invalid scan type.');
         }
-    
+
         $cart = Cart::instance($cartInstance)->content();
-    
+
         if ($cart->isEmpty()) {
             return back()->with('error', 'No scanned orders to confirm.');
         }
-    
+
         $updatedCount = 0;
         $userId = auth()->id();
-    
+
+        // ✅ store export data
+        $exportData = [];
+
         foreach ($cart as $item) {
+
             $order = Order::find($item->id);
-                
+
             if ($order && $order->status_id != $statusMap[$type]) {
-                $oldStatus = $order->status_id; // capture old status before update
-            
+
+                $oldStatus = $order->status_id;
+
                 $order->update([
                     'status_id'            => $statusMap[$type],
                     $fieldMap[$type]['by'] => $userId,
                     $fieldMap[$type]['at'] => now(),
                 ]);
 
-                order->statusLogs()->create([
-                'status_id' => $statusMap[$type],
-                'acted_by'  => auth()->id(),
-                'remarks'   => 'Order has been' . $type,
-                ]);
-
-
-                // Create a scan log for each order
                 ScanLog::create([
                     'order_id'       => $order->id,
                     'user_id'        => $userId,
@@ -150,14 +146,117 @@ class ScanController extends Controller
                     'to_status_id'   => $statusMap[$type],
                     'event_type'     => $type,
                 ]);
-            
+
+                // ✅ collect export row
+                $exportData[] = [
+                    'Order Number'   => $order->order_number,
+                    'Tracking Number'=> $order->tracking_number,
+                    'Customer'       => $order->customer_name,
+                    'Type'           => strtoupper($type),
+                    'Scanned By'     => auth()->user()->name ?? 'N/A',
+                    'Scanned At'     => now()->format('Y-m-d H:i:s'),
+                ];
+
                 $updatedCount++;
             }
         }
+
+        // ✅ destroy cart AFTER processing
         Cart::instance($cartInstance)->destroy();
-    
-        return back()->with('success', "{$updatedCount} {$type} order(s) confirmed successfully.");
+
+        // =========================
+        // DOWNLOAD CSV
+        // =========================
+        $filename = "scan_{$type}_" . now()->format('Ymd_His') . ".csv";
+
+        $response = new StreamedResponse(function () use ($exportData) {
+
+            $handle = fopen('php://output', 'w');
+
+            // header row
+            fputcsv($handle, array_keys($exportData[0]));
+
+            foreach ($exportData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', "attachment; filename={$filename}");
+
+        return $response;
     }
+
+    /**
+     * Confirm scanned orders dynamically (ship / cancelled / return)
+     */
+    // public function confirm_scans(Request $request, $type)
+    // {
+    //     $cartInstance = 'order_' . $type;
+
+    //     $statusMap = [
+    //         'ship'      => 3,
+    //         'cancelled' => 6, // updated
+    //         'return'    => 4,
+    //     ];
+
+    //     $fieldMap = [
+    //         'ship'      => ['by' => 'shipped_by', 'at' => 'shipped_at'],
+    //         'cancelled' => ['by' => 'cancelled_by', 'at' => 'cancelled_at'], // updated
+    //         'return'    => ['by' => 'returned_by','at' => 'returned_at'],
+    //     ];
+
+    //     if (!isset($statusMap[$type]) || !isset($fieldMap[$type])) {
+    //         return back()->with('error', 'Invalid scan type.');
+    //     }
+
+    //     $cart = Cart::instance($cartInstance)->content();
+
+    //     if ($cart->isEmpty()) {
+    //         return back()->with('error', 'No scanned orders to confirm.');
+    //     }
+
+    //     $updatedCount = 0;
+    //     $userId = auth()->id();
+
+    //     foreach ($cart as $item) {
+    //         $order = Order::find($item->id);
+
+    //         if ($order && $order->status_id != $statusMap[$type]) {
+    //             $oldStatus = $order->status_id; // capture old status before update
+
+    //             $order->update([
+    //                 'status_id'            => $statusMap[$type],
+    //                 $fieldMap[$type]['by'] => $userId,
+    //                 $fieldMap[$type]['at'] => now(),
+    //             ]);
+
+    //             // order->statusLogs()->create([
+    //             // 'status_id' => $statusMap[$type],
+    //             // 'acted_by'  => auth()->id(),
+    //             // 'remarks'   => 'Order has been' . $type,
+    //             // ]);
+
+
+    //             // Create a scan log for each order
+    //             ScanLog::create([
+    //                 'order_id'       => $order->id,
+    //                 'user_id'        => $userId,
+    //                 'from_status_id' => $oldStatus,
+    //                 'to_status_id'   => $statusMap[$type],
+    //                 'event_type'     => $type,
+    //             ]);
+
+    //             $updatedCount++;
+    //         }
+    //     }
+    //     Cart::instance($cartInstance)->destroy();
+
+    //     return back()->with('success', "{$updatedCount} {$type} order(s) confirmed successfully.");
+    // }
+
 
 
     /**
@@ -187,19 +286,19 @@ class ScanController extends Controller
         'sku' => 'required|string', // SKU or product ID
         'quantity' => 'required|integer|min:1', // Quantity being pulled
     ]);
-    
+
     // Trim the input for any leading/trailing whitespace
     $sku = trim($request->sku);
     $quantity = (int) $request->quantity;
-    
+
     // Find the product based on the SKU
     $product = Product::where('sku', $sku)->first();
-    
+
     if (!$product) {
         \Log::info("SKU: {$sku}, Quantity: {$quantity}");
         return back()->with('error', "Product with SKU {$sku} not found.");
     }
-    
+
     // Check if the quantity being pulled is available
     if ($quantity > $product->quantity) {
         \Log::error("Not enough quantity for SKU {$sku}. Available: {$product->quantity}");
@@ -207,14 +306,14 @@ class ScanController extends Controller
     }
 
      \Log::info("Product found: {$product->name}");
-    
+
     // Check if the product is already in the pull list
     $exists = Cart::instance('warehouse_pull')->search(function ($cartItem) use ($product) {
         return $cartItem->id === $product->id;
     });
 
     \Log::info("Product exists in cart: " . ($exists->isNotEmpty() ? 'Yes' : 'No'));
-    
+
     // If product already in the pull list, just update quantity
     if ($exists->isNotEmpty()) {
         Cart::instance('warehouse_pull')->update($exists->first()->rowId, $exists->first()->qty + $quantity);
@@ -233,24 +332,24 @@ class ScanController extends Controller
         ]);
         \Log::info("Product added to pull list: {$product->name} ({$product->sku})");
     }
-    
+
     return back()->with('success', "Product {$product->name} ({$sku}) added to the pull list.");
     }
-        
+
     /**
      * Confirm the scanned pulls and record them.
      */
     public function confirmProductPulls()
     {
         $cartItems = Cart::instance('warehouse_pull')->content();
-        
+
         if ($cartItems->isEmpty()) {
             return back()->with('error', 'No products scanned to confirm.');
         }
-        
+
         $updatedCount = 0;
         $userId = auth()->id(); // Assuming the employee is logged in
-        
+
         // Loop through the cart and record each pull
         foreach ($cartItems as $item) {
             // Record the product pull in the 'product_pulls' table
@@ -261,27 +360,27 @@ class ScanController extends Controller
                 'pulled_at' => now(),
                 'status' => 'completed', // Adjust this based on your needs
             ]);
-        
+
             // Optionally, reduce the stock in the products table (if necessary)
             $product = Product::find($item->id);
             $product->decrement('quantity', $item->qty); // Adjust stock based on quantity pulled
-        
+
             $updatedCount++;
         }
-        
+
         // Empty the pull list cart after processing the pulls
         Cart::instance('warehouse_pull')->destroy();
-        
+
         return back()->with('success', "{$updatedCount} product pull(s) confirmed successfully.");
     }
-        
+
     /**
      * Remove a product from the pull list.
      */
     public function removeProductFromPullList($rowId)
     {
         Cart::instance('warehouse_pull')->remove($rowId);
-        
+
         return back()->with('success', 'Product removed from pull list.');
     }
 

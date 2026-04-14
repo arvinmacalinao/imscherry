@@ -10,14 +10,11 @@ class ProductTransactionTypeSeeder extends Seeder
     public function run()
     {
         $types = [
-            ['name' => 'add'],
-            ['name' => 'remove'],
             ['name' => 'transfer_in'],
             ['name' => 'transfer_out'],
-            ['name' => 'borrowed'],
-            ['name' => 'returned'],
-            ['name' => 'free'],
-            ['name' => 'adjustment'],
+            ['name' => 'PO'],
+            ['name' => 'audit in'],
+            ['name' => 'audit out'],
         ];
 
         DB::table('product_transaction_types')->insert($types);

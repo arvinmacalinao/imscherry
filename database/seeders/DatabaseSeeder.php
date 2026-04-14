@@ -5,10 +5,6 @@ namespace Database\Seeders;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 use App\Models\User;
-use App\Models\Order;
-use App\Models\Customer;
-use App\Models\Purchase;
-use App\Models\Supplier;
 use Illuminate\Database\Seeder;
 use Database\Seeders\ShopNameSeeder;
 use Database\Seeders\PlatformsSeeder;
@@ -22,12 +18,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            //UserSeeder::class,
+            UserSeeder::class,
             CategorySeeder::class,
             PlatformsSeeder::class,
             OrderStatusSeeder::class,
             ProductTransactionTypeSeeder::class,
-            ShopNameSeeder::class
+            ShopNameSeeder::class,
+            UserRoleSeeder::class
         ]);
 
         // $orders = Order::factory(50)->create();

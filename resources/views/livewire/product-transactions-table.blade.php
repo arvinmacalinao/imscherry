@@ -32,9 +32,9 @@
 
                     <select wire:model.live="type" class="form-select w-auto">
                         <option value="">All Types</option>
-                        <option value="add">Add Stock</option>
-                        <option value="subtract">Subtract Stock</option>
-                        <option value="transfer">Transfer</option>
+                        @foreach($types as $type)
+                            <option value="{{ $type->name }}">{{ ucfirst($type->name) }}</option>
+                        @endforeach
                     </select>
                 
                     <input wire:model.live="date_from" 

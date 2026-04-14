@@ -42,7 +42,7 @@
                                 <div class="row gx-3 mb-3">
 
                                     {{-- Transaction Date --}}
-                                    <div class="col-md-4">
+                                    <div class="col-md-2">
                                         <label for="transaction_date" class="form-label required">
                                             {{ __('Transaction Date') }}
                                         </label>
@@ -72,9 +72,21 @@
                                             'maxOptions' => 50
                                         ]"
                                     />
+                                    <div class="col-md-3">
+                                        <label for="note" class="form-label">
+                                            {{ __('Reference No.') }}
+                                        </label>
 
+                                        <input type="text"
+                                               class="form-control"
+                                               id="reference_no"
+                                               name="reference_no"
+                                               value="{{ old('reference_no') }}"
+                                        >
+                                    </div>
+                                    
                                     {{-- Note --}}
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label for="note" class="form-label">
                                             {{ __('Note (Optional)') }}
                                         </label>

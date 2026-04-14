@@ -47,8 +47,8 @@
                                         <input type="text" class="form-control"
                                                id="invoice_no"
                                                name="invoice_no"
-                                               value="ORDR"
-                                               readonly>
+                                               value=""
+                                               >
                                         @error('invoice_no')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror

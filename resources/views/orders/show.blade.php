@@ -116,13 +116,13 @@
                         </div>
 
                         <div class="col">
-                            <label for="invoice_no" class="form-label required">
-                                {{ __('Invoice No.') }}
+                            <label for="order_number" class="form-label required">
+                                {{ __('Order No.') }}
                             </label>
                             <input type="text"
-                                   id="invoice_no"
+                                   id="order_number"
                                    class="form-control"
-                                   value="{{ $order->invoice_no }}"
+                                   value="{{ $order->order_number }}"
                                    disabled
                             >
                         </div>
@@ -234,10 +234,11 @@
                             <tr>
                                 <th class="text-center" style="width: 70px;">No.</th>
                                 <th class="text-center" style="width: 240px;">Product Name</th>
-                                <th class="text-center" style="width: 160px;">Product Code</th>
+                                {{-- <th class="text-center" style="width: 160px;">Product Code</th> --}}
                                 <th class="text-center" style="width: 110px;">Quantity</th>
                                 <th class="text-center" style="width: 130px;">Price</th>
                                 <th class="text-center" style="width: 150px;">Total</th>
+                                <th class="text-center" style="width: 150px;">Remarks</th>
                             
                                 @if (in_array($order->status_id, [4, 5]))
                                     <th class="text-center" style="width: 160px;">Action</th>
@@ -264,9 +265,9 @@
                                     </td>
                                 
                                     {{-- SKU --}}
-                                    <td class="text-center">
+                                    {{-- <td class="text-center">
                                         {{ $item->product->sku ?? '-' }}
-                                    </td>
+                                    </td> --}}
                                 
                                     {{-- Quantity --}}
                                     <td class="text-center">
@@ -282,9 +283,14 @@
                                     <td class="text-center">
                                         {{ number_format(($item->quantity * ($item->product->price ?? 0)), 2) }}
                                     </td>
+
+                                    <td>
+                                        {{ $item->remarks }}
+                                    </td>
                                 
                                     {{-- 🆕 ACTION COLUMN --}}
                                     @if ($order->status_id == 4)
+                                        @if($item->status_id)
                                         <td class="text-center">
                                             <div class="dropdown">
                                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
@@ -297,8 +303,7 @@
                                                                 
                                                 {{-- Returned to Warehouse --}}
                                                 <form method="POST"
-                                                      action="">
-                                                      {{-- route('returns.to-warehouse', $item->id) --}}
+                                                      action="{{ route('details.return', $item->id) }}">
                                                     @csrf
                                                     <button type="submit"
                                                             class="dropdown-item d-flex align-items-center gap-2">
@@ -311,8 +316,8 @@
                                             
                                                 {{-- Claims --}}
                                                 <form method="POST"
-                                                      action="">
-                                                      {{-- route('returns.claim', $item->id) --}}
+                                                      action="{{ route('details.claim', $item->id) }}">
+                                                      
                                                     @csrf
                                                     <button type="submit"
                                                             class="dropdown-item text-danger d-flex align-items-center gap-2">
@@ -323,6 +328,11 @@
                                                 </div>
                                             </div>
                                         </td>
+                                        @else
+                                        <td>
+                                            {{ $item->status->name }}
+                                        </td>
+                                        @endif
                                     {{-- Example: Status 5 (Invoiced) — Optional Actions --}}
                                     @elseif ($order->status_id == 5)
                                         <td class="text-center">
@@ -345,7 +355,7 @@
                     </div>
                 </div>
             </div>
-            <br>    
+            <br>
             @if($order->status_id == 5)
             <div class="card">
                 <div class="card-header">

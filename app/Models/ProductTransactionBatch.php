@@ -16,7 +16,8 @@ class ProductTransactionBatch extends Model
         'transaction_type_id',
         'note',
         'created_by',
-        'transaction_date'
+        'transaction_date',
+        'reference_no'
     ];
 
     // -----------------------------

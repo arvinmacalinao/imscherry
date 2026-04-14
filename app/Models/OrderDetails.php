@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use App\Models\OrderDetailsStatusLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +39,11 @@ class OrderDetails extends Model
     public function detailsstatusLogs()
     {
         return $this->hasMany(OrderDetailsStatusLog::class);
+    }
+
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(OrderStatus::class, 'status_id', 'id');
     }
 }
 

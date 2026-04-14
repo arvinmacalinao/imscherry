@@ -139,4 +139,9 @@ class Order extends Model
             ->where('status_id', 5)
             ->latest();
     }
+
+    public function getTotalQuantityAttribute()
+    {
+       return $this->details->sum('quantity');
+    }
 }

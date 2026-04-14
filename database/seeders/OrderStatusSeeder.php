@@ -23,7 +23,8 @@ class OrderStatusSeeder extends Seeder
             'Pending',
             'Picked',
             'Returned to Warehouse',
-            'For Claims'
+            'For Claims',
+            'Refunded'
         ];
 
         $statuses = [
@@ -36,7 +37,8 @@ class OrderStatusSeeder extends Seeder
            ['name' => 'Pending'],
            ['name' => 'Picked'],
            ['name' => 'Returned to Warehouse'],
-           ['name' => 'For Claims']
+           ['name' => 'For Claims'],
+           ['name' => 'Refunded']
         ];
 
          DB::table('order_statuses')->insert($statuses);

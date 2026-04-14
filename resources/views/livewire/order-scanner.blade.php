@@ -51,7 +51,7 @@
                     @if($item->scanned_qty >= $item->quantity)
                         <span class="text-green-600 font-bold">Done</span>
                     @else
-                        <span class="text-red-600">Pending</span>
+                        <span class="text-red-600">On Hold</span>
                     @endif
                 </td>
             </tr>

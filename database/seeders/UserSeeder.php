@@ -16,6 +16,7 @@ class UserSeeder extends Seeder
         $users = collect([
             [
                 'name' => 'Admin',
+                'username' => 'Admin',
                 'email' => 'admin@admin.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('password'),
@@ -23,6 +24,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'hazel',
+                'username' => 'hazel',
                 'email' => 'hazel@hazel.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('hazelpassword'),
@@ -30,6 +32,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'pau',
+                'username' => 'pau',
                 'email' => 'pau@pau.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('paupassword'),
@@ -37,6 +40,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'cherry',
+                'username' => 'cherry',
                 'email' => 'admcherryin@cherry.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('cherrypassword'),
@@ -44,6 +48,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'dianne',
+                'username' => 'dianne',
                 'email' => 'dianne@dianne.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('diannepassword'),
@@ -51,6 +56,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'may-ann',
+                'username' => 'may-ann',
                 'email' => 'may@may.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('maypassword'),
@@ -58,6 +64,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'cha',
+                'username' => 'cha',
                 'email' => 'cha@cha.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('chapassworda'),
@@ -65,6 +72,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'nancy',
+                'username' => 'nancy',
                 'email' => 'nancy@nancy.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('nancypassword'),
@@ -72,6 +80,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'duinkie',
+                'username' => 'duinkie',
                 'email' => 'duinkie@duinkie.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('duinkiepassword'),
@@ -79,6 +88,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'rox',
+                'username' => 'rox',
                 'email' => 'rox@rox.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('roxpassword'),
@@ -86,6 +96,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'jess',
+                'username' => 'jess',
                 'email' => 'jess@jess.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('jesspassword'),
@@ -93,6 +104,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'nicanor',
+                'username' => 'nicanor',
                 'email' => 'nicanor@nicanor.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('nicanorpassword'),
@@ -100,6 +112,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'marvin',
+                'username' => 'marvin',
                 'email' => 'marvin@marvin.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('marvinpassword'),
@@ -107,6 +120,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'alimoden',
+                'username' => 'alimoden',
                 'email' => 'alimoden@alimoden.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('alimodenpassword'),
@@ -114,6 +128,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'ronnie',
+                'username' => 'ronnie',
                 'email' => 'ronnie@ronnie.com',
                 'email_verified_at' => now(),
                 'password' => bcrypt('ronniepassword'),

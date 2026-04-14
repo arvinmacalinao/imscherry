@@ -3,10 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\Product;
-use Livewire\Component;
-use Livewire\WithPagination;
 use App\Models\ProductTransaction;
 use App\Models\ProductTransactionBatch;
+use App\Models\ProductTransactionType;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 class ProductTransactionsTable extends Component
 {
@@ -34,15 +35,20 @@ class ProductTransactionsTable extends Component
     {
         $query = ProductTransactionBatch::with('items.product', 'user_created')->with('type')->latest();
 
+        $types = ProductTransactionType::all();
+
         if ($this->search) {
             $query->whereHas('product', function ($q) {
                 $q->where('name', 'like', "%{$this->search}%");
             });
         }
 
-        if ($this->type) {
-            $query->where('type', $this->type);
+       if ($this->type) {
+            $query->whereHas('type', function ($q) {
+                $q->where('name', $this->type);
+            });
         }
+
 
         if ($this->product_id) {
             $query->where('product_id', $this->product_id);
@@ -58,6 +64,7 @@ class ProductTransactionsTable extends Component
 
         return view('livewire.product-transactions-table', [
             'transactions' => $query->paginate(20),
+            'types' => $types,
         ]);
     }
 }

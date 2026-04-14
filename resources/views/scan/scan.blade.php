@@ -90,7 +90,7 @@
                         </tbody>
                     </table>
 
-                    <form action="{{ route('order.confirm', $type) }}" method="POST">
+                    <form action="{{ route('order.confirm', $type) }}" method="POST" target="_blank" onsubmit="setTimeout(() => location.reload(), 500);">
                         @csrf
                         <x-button type="submit" class="btn btn-success">
                             {{ __('Confirm') }}

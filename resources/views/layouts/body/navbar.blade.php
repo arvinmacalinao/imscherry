@@ -119,7 +119,7 @@
                             </div>
                         </div>
                     </li>
-
+                     {{-- @if(auth()->user()->hasRole('accounting')) --}}
                     <li class="nav-item dropdown {{ request()->is('reports*') ? 'active' : null }}">
                         <a class="nav-link dropdown-toggle" href="#navbar-base" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
@@ -154,7 +154,7 @@
                             </div>
                         </div>
                     </li>
-                    
+                    {{-- @endif --}}
                     <li class="nav-item dropdown {{ request()->is('users*', 'categories*', 'units*') ? 'active' : null }}">
                         <a class="nav-link dropdown-toggle" href="#navbar-base" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">

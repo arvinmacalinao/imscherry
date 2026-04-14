@@ -199,6 +199,12 @@
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
+                        <a wire:click.prevent="sortBy('quantity')" href="#" role="button">
+                            {{ __('No. of Items') }}
+                            @include('inclues._sort-icon', ['field' => 'quantity'])
+                        </a>
+                    </th>
+                    <th scope="col" class="align-middle text-center">
                         <a wire:click.prevent="sortBy('status_id')" href="#" role="button">
                             {{ __('Status') }}
                             @include('inclues._sort-icon', ['field' => 'status_id'])
@@ -212,8 +218,7 @@
             <tbody>
             @forelse ($orders as $order)
                 <tr wire:key="order-{{ $order->id }}"
-                    class="{{ $statusColors[$order->status_id] ?? '' }}'"
-                >
+                    class="{{ $statusColors[$order->status_id] ?? '' }} '">
                     <td class="align-middle text-center" onclick="event.stopPropagation();">
                         <input type="checkbox" wire:model.live="selected" value="{{ $order->id }}" onclick="event.stopPropagation();">
                     </td>
@@ -239,17 +244,32 @@
                         {{ $order->shopName->invoice_prefix ?? '' }}
                     </td>
                     <td class="align-middle text-center">
-                        {{ $order->order_date->format('d-m-Y') }}
+                        {{ $order->created_at->format('d-m-Y') }}
                     </td>
                     <td class="align-middle text-center">
                         {{ Number::currency($order->total, 'PHP') }}
                     </td>
                     <td class="align-middle text-center">
+                        {{ $order->total_quantity ?? '' }}
+                    </td>
+                    <td class="align-middle text-center">
                         {{ $order->status->name ?? 'N/A' }}
                     </td>
                     <td class="align-middle text-center" style="width: 5%">
-                        <x-button.show class="btn-icon" route="{{ route('orders.show', $order) }}" onclick="event.stopPropagation();"/>
-                        <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" onclick="event.stopPropagation();" target="_blank"/>
+                            <x-button.show class="btn-icon" route="{{ route('orders.show', $order) }}"/>
+                        @php
+                        @endphp
+                        @if(auth()->user()->hasRole('accounting'))
+                            <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" target="_blank"/>
+                        @endif
+                        @if(is_null($order->tracking_number))
+                            <button 
+                                class="btn btn-warning btn-icon"
+                                wire:click="$dispatch('openTrackingModal', { orderId: {{ $order->id }} })"
+                                title="Add Tracking Number">
+                                ➕
+                            </button>
+                        @endif
                     </td>
                 </tr>
                 @empty
@@ -272,6 +292,7 @@
             {{ $orders->links() }}
         </ul>
     </div>
+    <livewire:order.add-tracking-modal />
 </div>
 
 @push('page-scripts')

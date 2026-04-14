@@ -68,23 +68,23 @@ class OrderController extends Controller
             }
         }
     
-        // --- Generate Invoice Number per Shop ---
-        $shop = ShopName::find($request->shop_name_id);
-        $prefix = $shop->invoice_prefix; // e.g. SHPPL, LZDPL, HO
-        // get last order for this prefix
-        $lastOrder = Order::where('invoice_no', 'like', $prefix . '%')
-            ->latest()
-            ->first();
-        // Extract last 6 digits
-        $lastSeq = $lastOrder
-            ? intval(substr($lastOrder->invoice_no, strlen($prefix)))
-            : 0;
-        // Increment
-        $newSeq = str_pad($lastSeq + 1, 6, '0', STR_PAD_LEFT);
-        // Combine prefix + number
-        $invoiceNo = $prefix . $newSeq;
-        // Add to request
-        $request->merge(['invoice_no' => $invoiceNo]);
+        // // --- Generate Invoice Number per Shop ---
+        // $shop = ShopName::find($request->shop_name_id);
+        // $prefix = $shop->invoice_prefix; // e.g. SHPPL, LZDPL, HO
+        // // get last order for this prefix
+        // $lastOrder = Order::where('invoice_no', 'like', $prefix . '%')
+        //     ->latest()
+        //     ->first();
+        // // Extract last 6 digits
+        // $lastSeq = $lastOrder
+        //     ? intval(substr($lastOrder->invoice_no, strlen($prefix)))
+        //     : 0;
+        // // Increment
+        // $newSeq = str_pad($lastSeq + 1, 6, '0', STR_PAD_LEFT);
+        // // Combine prefix + number
+        // $invoiceNo = $prefix . $newSeq;
+        // // Add to request
+        // $request->merge(['invoice_no' => $invoiceNo]);
     
         do {
         $prefix = now()->format('ymd'); // YYMMDD
@@ -106,7 +106,12 @@ class OrderController extends Controller
             'invoice_no',
             'order_number'
         ]));
-    
+
+        $order->statusLogs()->create([
+                        'status_id' => 1,
+                        'acted_by'  => auth()->id(),
+                        'remarks'   => 'Manual Order Successfully Added',
+                    ]);
     
         // --- Create Order Details + Stock Deduction ---
         $cartItems = Cart::instance('order')->content();
