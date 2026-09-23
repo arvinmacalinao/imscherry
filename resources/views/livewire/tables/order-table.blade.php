@@ -33,7 +33,7 @@
     <div class="d-flex flex-wrap gap-2">
         {{-- Status Filter --}}
             <div class="text-secondary d-flex me-3">
-                Status: 
+                Status:
                 <select wire:model.live="orderStatus" class="form-select form-select-sm">
                     <option value="">-- All Statuses --</option>
                     @foreach ($statuses as $status)
@@ -44,7 +44,7 @@
 
             {{-- Shop Filter --}}
             <div class="text-secondary d-flex me-3">
-                Shops: 
+                Shops:
                 <select wire:model.live="shopFilter" class="form-select form-select-sm">
                     <option value="">-- All Shops --</option>
                     @foreach ($shops as $shop)
@@ -108,7 +108,7 @@
                 onclick="return confirm('Are you sure you want to download order summary of these orders?')">
                 Download Order Qty Summary  ({{ count($selected) }})
                 </button>
-            
+
                 <button class="btn btn-sm btn-outline-secondary"
                     wire:click="printInvoiceSelected"
                     @disabled(count($selected) === 0)
@@ -117,7 +117,7 @@
                     Download Invoice ({{ count($selected) }})
                 </button>
 
-                {{-- <button 
+                {{-- <button
                     class="btn btn-sm btn-outline-danger"
                     wire:click="deleteSelected"
                     @disabled(count($selected) === 0)
@@ -263,7 +263,7 @@
                             <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" target="_blank"/>
                         @endif
                         @if(is_null($order->tracking_number))
-                            <button 
+                            <button
                                 class="btn btn-warning btn-icon"
                                 wire:click="$dispatch('openTrackingModal', { orderId: {{ $order->id }} })"
                                 title="Add Tracking Number">

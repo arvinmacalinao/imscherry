@@ -60,3 +60,31 @@ if (!function_exists('array_merge_numeric_values')) {
         return $merged;
     }
 }
+
+if(!function_exists('getCellValue')){
+    function getCellValue($cell)
+    {
+        $value = $cell->getValue();
+
+        if ($value instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+            return $value->getPlainText();
+        }
+
+        return $value;
+    }
+}
+
+if(!function_exists('getNumericCell')){
+    function getNumericCell($cell)
+    {
+        $value = $cell->getValue();
+
+        if ($value instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+            $value = $value->getPlainText();
+        }
+
+        $value = preg_replace('/[^\d.\-]/', '', $value);
+
+        return (float) $value;
+    }
+}

@@ -33,7 +33,7 @@ class Order extends Model
         'created_at'    => 'datetime',
         'updated_at'    => 'datetime',
         'deleted_at'    => 'datetime',
-        
+
     ];
 
     public function customer(): BelongsTo
@@ -74,7 +74,7 @@ class Order extends Model
               });
         });
     }
-    
+
     public function status(): BelongsTo
     {
         return $this->belongsTo(OrderStatus::class, 'status_id', 'id');
@@ -99,7 +99,7 @@ class Order extends Model
     {
         return $this->hasMany(OrderStatusLog::class);
     }
-    
+
     public function currentStatus()
     {
         return $this->belongsTo(OrderStatusLog::class, 'status_id');

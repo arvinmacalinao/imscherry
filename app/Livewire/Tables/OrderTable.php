@@ -84,8 +84,8 @@ class OrderTable extends Component
     {
         $this->statuses = OrderStatus::orderBy('name')->get();
         $this->shops = ShopName::orderBy('name')->get();
-        
-    }   
+
+    }
 
     public function updatedOrderStatus()
     {
@@ -125,33 +125,33 @@ class OrderTable extends Component
     public function printInvoiceSelected()
     {
         // Log::info('printInvoiceSelected called', ['selected' => $this->selected]);
-    
+
         if (empty($this->selected)) {
             $this->dispatch('notify', type: 'error', message: 'No orders selected.');
             return;
         }
-    
+
         // send selected order IDs to the browser
         $this->dispatch('bulk-download-invoices', ids: $this->selected);
     }
 
-    
+
     public function printSummarySelected()
     {
         if (empty($this->selected)) {
             $this->dispatch('notify', type: 'error', message: 'No orders selected.');
             return;
         }
-    
+
         $orders = Order::with('details.product')
             ->whereIn('id', $this->selected)
             ->get();
-    
+
         if ($orders->isEmpty()) {
             $this->dispatch('notify', type: 'error', message: 'No valid orders found.');
             return;
         }
-    
+
         // Direct download, no storage
         return Excel::download(
             new OrderSummaryExport($orders),
@@ -165,16 +165,16 @@ class OrderTable extends Component
             $this->dispatch('notify', type: 'error', message: 'No orders selected.');
             return;
         }
-    
+
         $orders = Order::with('details.product')
             ->whereIn('id', $this->selected)
             ->get();
-    
+
         if ($orders->isEmpty()) {
             $this->dispatch('notify', type: 'error', message: 'No valid orders found.');
             return;
         }
-    
+
         // Direct download, no storage
         return Excel::download(
             new OrderSummaryExportWarehouse($orders),
@@ -185,12 +185,12 @@ class OrderTable extends Component
     public function render()
     {
         \Log::info('Filtering by status ID: ' . $this->orderStatus);
-    
+
         $user = auth()->user();
-    
+
         // ✅ Default = all statuses
         $allowedStatuses = null;
-    
+
         // Accounting restriction
         if ($user->hasRole('admin') || $user->hasRole('ecom')) {
         $allowedStatuses = null; // see everything
@@ -199,7 +199,7 @@ class OrderTable extends Component
             $allowedStatuses = [1, 5]; // Imported + Invoiced
         }
         else if($user->hasRole('warehouse')){
-            $allowedStatuses = [5, 8];
+            $allowedStatuses = [5, 8, 7];
         }
         else if($user->hasRole('qc')){
             $allowedStatuses = [8, 2];
@@ -207,35 +207,35 @@ class OrderTable extends Component
         else if($user->hasRole('Packer')){
             $allowedStatuses = [2, 3];
         }
-    
+
         $orders = Order::query()
             ->with(['status', 'customer', 'details', 'shopName'])
-    
+
             // 🔒 ROLE-BASED RESTRICTION
             ->when($allowedStatuses, function ($query) use ($allowedStatuses) {
                 $query->whereIn('status_id', $allowedStatuses);
             })
-    
+
             // 🎯 UI status filter (still works but within allowed)
             ->when($this->orderStatus, function ($query) {
                 $query->where('status_id', $this->orderStatus);
             })
-    
+
             ->when($this->shopFilter, fn($q) =>
                 $q->where('shop_name_id', $this->shopFilter)
             )
-    
+
             ->when($this->date_from && $this->date_to, function ($query) {
                 $query->whereBetween('order_date', [
                     $this->date_from . ' 00:00:00',
                     $this->date_to . ' 23:59:59'
                 ]);
             })
-    
+
             ->search($this->search)
             ->orderBy($this->sortField, $this->sortAsc ? 'asc' : 'desc')
             ->paginate($this->perPage);
-    
+
         return view('livewire.tables.order-table', [
             'orders' => $orders,
         ]);
@@ -254,7 +254,7 @@ class OrderTable extends Component
     //         ->when($this->shopFilter, fn($q) =>
     //                 $q->where('shop_name_id', $this->shopFilter)
     //             )
-                
+
     //         ->when($this->date_from && $this->date_to, function ($query) {
     //         $query->whereBetween('order_date', [
     //             $this->date_from . ' 00:00:00',

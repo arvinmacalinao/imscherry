@@ -18,3 +18,7 @@ yarn-error.log
 /.idea
 /.vscode
 /reports
+
+# Server-only files (DreamHost)
+/composer
+/public/.dh-diag

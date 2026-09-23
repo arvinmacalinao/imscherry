@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\OrderStatus;
+use App\Models\OrderStatus;
 use App\Models\OrderDetailsStatusLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,8 +14,7 @@ class OrderDetails extends Model
     ];
 
     protected $fillable = [
-        'id', 'order_id', 'product_id', 'product_name', 'sku', 'quantity', 'unit_price', 'created_at', 'updated_at', 'deleted_at', 'scanned_qty', 'tracking_number'
-    ];
+        'id', 'order_id', 'product_id', 'product_name', 'sku', 'quantity', 'unit_price', 'created_at', 'updated_at', 'deleted_at', 'scanned_qty', 'tracking_number', 'status_id', 'remarks'];
 
     protected $casts = [
         'created_at' => 'datetime',
@@ -43,7 +42,7 @@ class OrderDetails extends Model
 
     public function status(): BelongsTo
     {
-        return $this->belongsTo(OrderStatus::class, 'status_id', 'id');
+        return $this->belongsTo(OrderStatus::class, 'status_id');
     }
 }
 

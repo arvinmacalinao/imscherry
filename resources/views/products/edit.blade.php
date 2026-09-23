@@ -80,6 +80,27 @@
                                         </div>
                                     </div>
 
+                                    <div class="col-sm-6 col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label" for="sku">
+                                                SKU
+                                                <span class="text-danger">*</span>
+                                            </label>
+
+                                            <input type="text"
+                                                   id="sku"
+                                                   name="sku"
+                                                   class="form-control @error('sku') is-invalid @enderror"
+                                                   value="{{ old('sku', $product->sku) }}"
+                                            >
+
+                                            @error('sku')
+                                            <div class="invalid-feedback">
+                                                {{ $message }}
+                                            </div>
+                                            @enderror
+                                        </div>
+                                    </div>
 
                                     <div class="col-sm-6 col-md-6">
                                         <div class="mb-3">
@@ -127,7 +148,7 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    
+
                                 </div>
                             </div>
 

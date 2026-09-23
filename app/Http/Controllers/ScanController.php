@@ -42,13 +42,14 @@ class ScanController extends Controller
     /**
      * Process a scanned tracking number (dynamic)
      */
+
     public function scan_process(Request $request)
     {
-        $path = $request->path(); // e.g. order/scan_ship
+        $path = $request->path();
 
-        // ✅ detect which scan type
-        $type = str_contains($path, 'ship') ? 'ship' :
-                (str_contains($path, 'cancelled') ? 'cancelled' : 'return'); // updated
+        $type = str_contains($path, 'ship')
+            ? 'ship'
+            : (str_contains($path, 'cancelled') ? 'cancelled' : 'return');
 
         $cartInstance = 'order_' . $type;
 
@@ -58,38 +59,69 @@ class ScanController extends Controller
 
         $trackingOrOrder = trim($request->tracking_number);
 
+        // REQUIRED STATUS PER FLOW
+        $requiredStatus = match ($type) {
+            'ship' => 2,
+            'return' => 3,
+            default => null,
+        };
+
+        // FIND ORDER
         $order = Order::with('details.product')
-            ->where('tracking_number', $trackingOrOrder)
-            ->orWhere('order_number', $trackingOrOrder)
+            ->where(function ($query) use ($trackingOrOrder) {
+                $query->where('tracking_number', $trackingOrOrder)
+                    ->orWhere('order_number', $trackingOrOrder);
+            })
+            ->when($requiredStatus, function ($query) use ($requiredStatus) {
+                $query->where('status_id', $requiredStatus);
+            })
             ->first();
 
+        // ✅ IMPORTANT — HANDLE NOT FOUND
         if (!$order) {
-            return back()->with('error', "Order with tracking number or order number {$trackingOrOrder} not found.");
+
+            $statusText = match ($type) {
+                'ship' => 'QC Done',
+                'return' => 'Shipped',
+                default => 'valid',
+            };
+
+            return back()->with(
+                'error',
+                "Order {$trackingOrOrder} not found or not in {$statusText} status."
+            );
         }
 
-        // ✅ Check if already in cart
-        $exists = Cart::instance($cartInstance)->search(function ($cartItem, $rowId) use ($order) {
-            return $cartItem->id === $order->id;
-        });
+        // CHECK DUPLICATE SCAN
+        $exists = Cart::instance($cartInstance)
+            ->search(function ($cartItem) use ($order) {
+                return $cartItem->id === $order->id;
+            });
 
         if ($exists->isNotEmpty()) {
-            return back()->with('error', "Order {$trackingOrOrder} already scanned.");
+            return back()->with(
+                'error',
+                "Order {$trackingOrOrder} already scanned."
+            );
         }
 
-        // ✅ Add to cart
+        // ADD TO CART
         Cart::instance($cartInstance)->add([
             'id' => $order->id,
-            'name' => $order->tracking_number,
+            'name' => $order->tracking_number ?: $order->order_number,
             'qty' => 1,
             'price' => 0,
             'weight' => 0,
             'options' => [
                 'customer' => $order->customer_name ?? 'N/A',
-                'status_id' => $order->status_id,
+                'status_id' => $order->status->name ?? 'N/A',
             ],
         ]);
 
-        return back()->with('success', "Order {$trackingOrOrder} added to {$type} scan list.");
+        return back()->with(
+            'success',
+            "Order {$trackingOrOrder} added to {$type} scan list."
+        );
     }
 
 
@@ -145,6 +177,17 @@ class ScanController extends Controller
                     'from_status_id' => $oldStatus,
                     'to_status_id'   => $statusMap[$type],
                     'event_type'     => $type,
+                ]);
+
+                $order->statusLogs()->create([
+                    'status_id' => $statusMap[$type],
+                    'acted_by'  => $userId,
+                    'remarks'   => match ($type) {
+                        'ship'      => 'Order shipped via scan confirmation',
+                        'return'    => 'Order marked as returned via scan confirmation',
+                        'cancelled' => 'Order cancelled via scan confirmation',
+                        default     => 'Order status updated via scan confirmation',
+                    },
                 ]);
 
                 // ✅ collect export row

@@ -38,7 +38,7 @@
                                             fill="none">
                                            <path d="M5 12l5 5l10 -10"/>
                                        </svg>
-                                   
+
                                        <span>QC Done</span>
                                    </button>
                                </form>
@@ -50,12 +50,12 @@
                                   onsubmit="return submitWithRemarks(this, 'Please enter cancellation remarks:')">
                                 @csrf
                                 @method('put')
-                        
+
                                 <input type="hidden" name="remarks">
-                        
+
                                 <button type="submit"
                                         class="dropdown-item text-danger d-flex align-items-center gap-2">
-                        
+
                                     <svg xmlns="http://www.w3.org/2000/svg"
                                          width="18" height="18"
                                          viewBox="0 0 24 24"
@@ -65,25 +65,25 @@
                                         <path d="M18 6l-12 12"/>
                                         <path d="M6 6l12 12"/>
                                     </svg>
-                                
+
                                     <span>Cancel Order</span>
                                 </button>
                             </form>
-                        
+
                             <div class="dropdown-divider"></div>
-                        
+
                             {{-- 🟡 Pending Order --}}
                             <form action="{{ route('orders.pending', $order) }}"
                                   method="POST"
                                   onsubmit="return submitWithRemarks(this, 'Please enter pending remarks:')">
                                 @csrf
                                 @method('put')
-                        
+
                                 <input type="hidden" name="remarks">
-                        
+
                                 <button type="submit"
                                         class="dropdown-item d-flex align-items-center gap-2">
-                        
+
                                     <svg xmlns="http://www.w3.org/2000/svg"
                                          width="18" height="18"
                                          viewBox="0 0 24 24"
@@ -93,7 +93,7 @@
                                         <circle cx="12" cy="12" r="9"/>
                                         <path d="M12 7v5l3 3"/>
                                     </svg>
-                                
+
                                     <span>Set as Pending</span>
                                 </button>
                             </form>
@@ -168,7 +168,7 @@
                             <label class="form-label required">
                                 {{ __('Imported by') }}
                             </label>
-                        
+
                             <input
                                 type="text"
                                 class="form-control"
@@ -180,7 +180,7 @@
                             <label class="form-label required">
                                 {{ __('Invoiced By') }}
                             </label>
-                        
+
                             <input
                                 type="text"
                                 class="form-control"
@@ -192,7 +192,7 @@
                             <label class="form-label required">
                                 {{ __('Picked By') }}
                             </label>
-                        
+
                             <input
                                 type="text"
                                 class="form-control"
@@ -204,7 +204,7 @@
                             <label class="form-label required">
                                 {{ __('QC By') }}
                             </label>
-                        
+
                             <input
                                 type="text"
                                 class="form-control"
@@ -216,7 +216,7 @@
                             <label class="form-label required">
                                 {{ __('Packed/Shipped by') }}
                             </label>
-                        
+
                             <input
                                 type="text"
                                 class="form-control"
@@ -229,7 +229,7 @@
                     <div class="table-responsive" style="overflow-x: hidden;">
                         <table class="table table-striped table-bordered align-middle w-100"
                                style="table-layout: fixed;">
-                                        
+
                             <thead class="thead-light">
                             <tr>
                                 <th class="text-center" style="width: 70px;">No.</th>
@@ -239,105 +239,127 @@
                                 <th class="text-center" style="width: 130px;">Price</th>
                                 <th class="text-center" style="width: 150px;">Total</th>
                                 <th class="text-center" style="width: 150px;">Remarks</th>
-                            
+
                                 @if (in_array($order->status_id, [4, 5]))
                                     <th class="text-center" style="width: 160px;">Action</th>
                                 @endif
                             </tr>
                             </thead>
-                        
+
                             <tbody>
                             {{-- @php
                                 dd($order->details);
                             @endphp --}}
                             @forelse ($order->details as $item)
                                 <tr>
-                                
+
                                     {{-- No --}}
                                     <td class="text-center">
                                         {{ $loop->iteration }}
                                     </td>
-                                
+
                                     {{-- Product Name (wrap enabled) --}}
                                     <td class="text-start text-wrap"
                                         style="word-break: break-word;">
                                         {{ $item->product->name ?? '-' }}
                                     </td>
-                                
+
                                     {{-- SKU --}}
                                     {{-- <td class="text-center">
                                         {{ $item->product->sku ?? '-' }}
                                     </td> --}}
-                                
+
                                     {{-- Quantity --}}
                                     <td class="text-center">
                                         {{ $item->quantity }}
                                     </td>
-                                
+
                                     {{-- Price --}}
                                     <td class="text-center">
-                                        {{ number_format($item->product->price ?? 0, 2) }}
-                                    </td>
-                                
-                                    {{-- Total --}}
-                                    <td class="text-center">
-                                        {{ number_format(($item->quantity * ($item->product->price ?? 0)), 2) }}
+                                        {{ number_format($item->unit_price ?? 0, 2) }}
                                     </td>
 
+                                    {{-- Total --}}
+                                    <td class="text-center">
+                                        {{ number_format(($item->quantity * ($item->unit_price ?? 0)), 2) }}
+                                    </td>
                                     <td>
                                         {{ $item->remarks }}
                                     </td>
-                                
                                     {{-- 🆕 ACTION COLUMN --}}
-                                    @if ($order->status_id == 4)
-                                        @if($item->status_id)
-                                        <td class="text-center">
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                                                    data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                Action
+                                    @if (in_array($order->status_id, [4, 10]))
+                                        @if(is_null($item->status_id) || $item->status_id == 10)
+                                            <td class="text-center">
+                                                <div class="dropdown">
+                                                    <button
+                                                        class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                        data-bs-toggle="dropdown">
+                                                        Action
+                                                    </button>
+                                                    <div class="dropdown-menu dropdown-menu-end">
+                                                        {{-- ========================= --}}
+                                                        {{-- RETURNED ORDER --}}
+                                                        {{-- ========================= --}}
+                                                        @if($order->status_id == 4)
+                                                            <form method="POST"
+                                                                  action="{{ route('details.return', $item->id) }}"
+                                                                  onsubmit="return submitWithRemarks(this,'Please enter return remarks:')">
+                                                                @csrf
+                                                                <input type="hidden" name="remarks">
+                                                                <button type="submit"
+                                                                        class="dropdown-item">
+                                                                    📦 Return to Warehouse
                                                                 </button>
-                                                            
-                                                                <div class="dropdown-menu dropdown-menu-end">
-                                                                
-                                                {{-- Returned to Warehouse --}}
-                                                <form method="POST"
-                                                      action="{{ route('details.return', $item->id) }}">
-                                                    @csrf
-                                                    <button type="submit"
-                                                            class="dropdown-item d-flex align-items-center gap-2">
-                                                        <span>📦</span>
-                                                        <span>Returned to Warehouse</span>
-                                                    </button>
-                                                </form>
-                                            
-                                                <div class="dropdown-divider"></div>
-                                            
-                                                {{-- Claims --}}
-                                                <form method="POST"
-                                                      action="{{ route('details.claim', $item->id) }}">
-                                                      
-                                                    @csrf
-                                                    <button type="submit"
-                                                            class="dropdown-item text-danger d-flex align-items-center gap-2">
-                                                        <span>⚠️</span>
-                                                        <span>Claims</span>
-                                                    </button>
-                                                </form>
+                                                            </form>
+                                                            <div class="dropdown-divider"></div>
+                                                            <form method="POST"
+                                                                  action="{{ route('details.claim', $item->id) }}"
+                                                                  onsubmit="return submitWithRemarks(this,'Please enter claim remarks:')">
+                                                                @csrf
+                                                                <input type="hidden" name="remarks">
+                                                                <button type="submit"
+                                                                        class="dropdown-item text-danger">
+                                                                    ⚠️ For Claims
+                                                                </button>
+                                                            </form>
+                                                        @endif
+
+                                                        {{-- ========================= --}}
+                                                        {{-- CLAIMS ORDER --}}
+                                                        {{-- ========================= --}}
+                                                        @if($order->status_id == 10)
+                                                            <form method="POST"
+                                                                  action="{{ route('details.refunded', $item->id) }}"
+                                                                  onsubmit="return submitWithRemarks(this,'Please enter refund remarks:')">
+                                                                @csrf
+                                                                <input type="hidden" name="remarks">
+                                                                <button type="submit"
+                                                                        class="dropdown-item text-success">
+                                                                    💰 Refunded
+                                                                </button>
+                                                            </form>
+                                                            <div class="dropdown-divider"></div>
+                                                            <form method="POST"
+                                                                  action="{{ route('details.claimRejected', $item->id) }}"
+                                                                  onsubmit="return submitWithRemarks(this,'Please enter rejection remarks:')">
+                                                                @csrf
+                                                                <input type="hidden" name="remarks">
+                                                                <button type="submit"
+                                                                        class="dropdown-item text-danger">
+                                                                    ❌ Claim Rejected
+                                                                </button>
+                                                            </form>
+                                                        @endif
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
+                                            </td>
                                         @else
-                                        <td>
-                                            {{ $item->status->name }}
-                                        </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-primary">
+                                                    {{ $item->status->name }}
+                                                </span>
+                                            </td>
                                         @endif
-                                    {{-- Example: Status 5 (Invoiced) — Optional Actions --}}
-                                    @elseif ($order->status_id == 5)
-                                        <td class="text-center">
-                                            <span class="badge bg-success">Invoiced</span>
-                                        </td>
                                     @endif
                                 </tr>
                             @empty
@@ -369,6 +391,7 @@
         </div>
     </div>
 @endsection
+@push('page-scripts')
 <script>
 function submitWithRemarks(form, message) {
     const remarks = prompt(message);
@@ -378,7 +401,13 @@ function submitWithRemarks(form, message) {
         return false;
     }
 
-    form.querySelector('input[name="remarks"]').value = remarks.trim();
+    const remarksField = form.querySelector('input[name="remarks"]');
+
+    if (remarksField) {
+        remarksField.value = remarks.trim();
+    }
+
     return true;
 }
 </script>
+@endpush

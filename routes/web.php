@@ -1,31 +1,32 @@
 <?php
 
-use App\Livewire\ScanCart;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ScanController;
-use App\Http\Controllers\UnitController;
-use App\Http\Controllers\UserController;
-use App\Http\Livewire\Scan\ReturnedScan;
-use App\Http\Livewire\Scan\CancelledScan;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ScanLogController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\Order\OrderController;
-use App\Http\Controllers\Order\DueOrderController;
-use App\Http\Controllers\Product\ProductController;
-use App\Http\Controllers\Order\OrderImportController;
-use App\Http\Controllers\Purchase\PurchaseController;
-use App\Http\Controllers\Order\OrderPendingController;
-use App\Http\Controllers\ProductTransactionController;
-use App\Http\Controllers\Order\OrderCompleteController;
-use App\Http\Controllers\Quotation\QuotationController;
 use App\Http\Controllers\Dashboards\DashboardController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Order\DueOrderController;
+use App\Http\Controllers\Order\OrderCompleteController;
+use App\Http\Controllers\Order\OrderController;
+use App\Http\Controllers\Order\OrderImportController;
+use App\Http\Controllers\Order\OrderPendingController;
+use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Product\ProductExportController;
 use App\Http\Controllers\Product\ProductImportController;
+use App\Http\Controllers\ProductTransactionController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Purchase\PurchaseController;
+use App\Http\Controllers\Quotation\QuotationController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ScanController;
+use App\Http\Controllers\ScanLogController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\UserController;
+use App\Http\Livewire\Scan\CancelledScan;
+use App\Http\Livewire\Scan\ReturnedScan;
+use App\Livewire\ScanCart;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +77,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('/quotations', QuotationController::class);
     Route::resource('/customers', CustomerController::class);
+
+
     Route::resource('/suppliers', SupplierController::class);
     Route::resource('/categories', CategoryController::class);
     Route::resource('/units', UnitController::class);
@@ -104,7 +107,7 @@ Route::middleware(['auth'])->group(function () {
     // SHOW ORDER
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::put('/orders/cancel/{order}', [OrderController::class, 'cancel'])->name('orders.cancel');
-    Route::get('/orders/pending/{order}', [OrderController::class, 'pending'])->name('orders.pending');
+    Route::any('/orders/pending/{order}', [OrderController::class, 'pending'])->name('orders.pending');
     Route::put('/orders/update/{order}', [OrderController::class, 'update'])->name('orders.update');
 
     // DUES
@@ -166,6 +169,14 @@ Route::middleware(['auth'])->group(function () {
     [OrderController::class, 'forClaims'])
     ->name('details.claim');
 
+    Route::post('/details/{detail}/refunded',
+    [OrderController::class, 'refunded'])
+    ->name('details.refunded');
+
+    Route::post('/details/{detail}/claim-rejected',
+    [OrderController::class, 'claimRejected'])
+    ->name('details.claimRejected');
+
 
     Route::get('/scanned-items', function () {
         return view('scan.index'); // only wrapper blade
@@ -209,3 +220,6 @@ Route::get('test/', function (){
 //    return view('test');
     return view('orders.create');
 });
+
+
+

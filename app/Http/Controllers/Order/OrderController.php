@@ -54,7 +54,7 @@ class OrderController extends Controller
                 ['name' => $request->customer_id],
                 ['name' => $request->customer_id]
             );
-        
+
             $request->merge([
                 'customer_id'   => $customer->id,
                 'customer_name' => $customer->name,
@@ -67,7 +67,7 @@ class OrderController extends Controller
                 ]);
             }
         }
-    
+
         // // --- Generate Invoice Number per Shop ---
         // $shop = ShopName::find($request->shop_name_id);
         // $prefix = $shop->invoice_prefix; // e.g. SHPPL, LZDPL, HO
@@ -85,13 +85,13 @@ class OrderController extends Controller
         // $invoiceNo = $prefix . $newSeq;
         // // Add to request
         // $request->merge(['invoice_no' => $invoiceNo]);
-    
+
         do {
         $prefix = now()->format('ymd'); // YYMMDD
         $random = strtoupper(Str::random(8));
         $orderNumber = $prefix . $random;
         } while (Order::where('order_number', $orderNumber)->exists());
-    
+
         $request->merge(['order_number' => $orderNumber]);
         // --- Create Order ---
         $order = Order::create($request->all([
@@ -112,12 +112,12 @@ class OrderController extends Controller
                         'acted_by'  => auth()->id(),
                         'remarks'   => 'Manual Order Successfully Added',
                     ]);
-    
+
         // --- Create Order Details + Stock Deduction ---
         $cartItems = Cart::instance('order')->content();
-    
+
         foreach ($cartItems as $item) {
-        
+
             // Insert order detail
             OrderDetails::create([
                 'order_id'   => $order->id,
@@ -125,7 +125,7 @@ class OrderController extends Controller
                 'quantity'   => $item->qty,
                 'unit_price' => $item->price,
             ]);
-        
+
             // // Deduct stock
             // $product = Product::find($item->id);
             // if ($product) {
@@ -133,12 +133,12 @@ class OrderController extends Controller
             //     $product->save();
             // }
         }
-    
-    
+
+
         // --- Clear only the order cart ---
         Cart::instance('order')->destroy();
-    
-    
+
+
         return redirect()
             ->route('orders.index')
             ->with('success', 'Order has been created!');
@@ -187,7 +187,7 @@ class OrderController extends Controller
     //     return redirect()->back()->with('success', 'Order has been cancelled.');
     // }
 
-    
+
 
     public function update(Order $order, Request $request)
     {
@@ -195,7 +195,7 @@ class OrderController extends Controller
 
         // Reduce the stock
         $products = OrderDetails::where('order_id', $order)->get();
-        
+
         foreach ($products as $product) {
             Product::where('id', $product->product_id)
                 ->update(['quantity' => DB::raw('quantity-' . $product->quantity)]);
@@ -218,20 +218,20 @@ class OrderController extends Controller
     //     } else {
     //         $user->deleted_at = Carbon::now();
     //         $user->update();
-            
+
     //         $request->session()->put('session_msg', 'Record deleted!');
     //         return redirect(route('employee.index'));
     //     }
     // }
 
-    
+
 
     // public function delete(Order $order)
     // {
     //     dd($order->id);
     //     $test = Order::where('id', $order)->first();
     //     dd($test);
-        
+
 
     //     $order->delete();
     // }
@@ -278,34 +278,34 @@ class OrderController extends Controller
 
     //     return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
     // }
-    
+
     public function downloadMultipleInvoices(Request $request)
     {
         $ids = $request->input('ids', []);
-    
+
         if (empty($ids)) {
             return back()->with('error', 'No orders selected.');
         }
-    
+
         $orders = Order::with('details.product')
             ->whereIn('id', $ids)
             ->get();
-    
+
         if ($orders->isEmpty()) {
             return back()->with('error', 'No invoices found.');
         }
-    
+
         DB::transaction(function () use ($orders, $request) {
-    
+
             foreach ($orders as $order) {
-    
+
                 // Prevent duplicate invoicing logs
                 if ($order->status_id != 5) {
-    
+
                     $order->update([
                         'status_id' => 5
                     ]);
-    
+
                     $order->statusLogs()->create([
                         'status_id' => 5,
                         'acted_by'  => auth()->id(),
@@ -314,93 +314,93 @@ class OrderController extends Controller
                 }
             }
         });
-    
+
         $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'));
-    
+
         return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
     }
 
     public function exportOrderSummary(Request $request)
     {
         $orderIds = $request->input('order_ids'); // array of selected order IDs
-    
+
         if (empty($orderIds)) {
             return back()->with('error', 'Please select at least one order.');
         }
-    
+
         $orders = Order::with('details.product')
             ->whereIn('id', $orderIds)
             ->get();
-    
+
         if ($orders->isEmpty()) {
             return back()->with('error', 'No valid orders found.');
         }
-    
+
         return Excel::download(new OrderSummaryExport($orders), 'order_summary.xlsx');
     }
 
     public function exportOrderSummaryWarehouse(Request $request)
     {
         $orderIds = $request->input('order_ids'); // array of selected order IDs
-    
+
         if (empty($orderIds)) {
             return back()->with('error', 'Please select at least one order.');
         }
-    
+
         $orders = Order::with('details.product')
             ->whereIn('id', $orderIds)
             ->get();
-    
+
         if ($orders->isEmpty()) {
             return back()->with('error', 'No valid orders found.');
         }
-    
+
         return Excel::download(new OrderSummaryExportWarehouse($orders), 'order_summary.xlsx');
     }
-    
+
 
     public function cancel(Request $request, Order $order)
     {
         $request->validate([
             'remarks' => 'required|string|max:255',
         ]);
-    
+
         $order->update([
             'status_id' => 6, // Cancelled
             'remarks'   => $request->remarks,
         ]);
-    
+
         $order->statusLogs()->create([
             'status_id' => 6,
             'acted_by'  => auth()->id(),
             'remarks'   => $request->remarks,
         ]);
-    
+
         return back()->with('success', 'Order has been cancelled.');
     }
-    
-    
+
+
     public function pending(Request $request, Order $order)
     {
         $request->validate([
             'remarks' => 'required|string|max:255',
         ]);
-    
+
         $order->update([
             'status_id' => 7, // Pending
             'remarks'   => $request->remarks,
         ]);
-    
+
         $order->statusLogs()->create([
             'status_id' => 7,
             'acted_by'  => auth()->id(),
             'remarks'   => $request->remarks,
         ]);
-    
+
         return back()->with('success', 'Order is on hold.');
     }
 
-    public function returnToWarehouse(Request $request, OrderDetails $detail)
+        public function returnToWarehouse(Request $request, OrderDetails $detail)
     {
         $request->validate([
             'remarks' => 'required|string|max:255',
@@ -411,7 +411,7 @@ class OrderController extends Controller
             'remarks'   => $request->remarks,
         ]);
 
-        // 🔥 CREATE ITEM LOG
+        // Item Log
         $detail->detailsstatusLogs()->create([
             'status_id' => 9,
             'acted_by'  => auth()->id(),
@@ -419,13 +419,26 @@ class OrderController extends Controller
             'remarks'   => $request->remarks,
         ]);
 
-        // OPTIONAL: restock product
+        // Update Parent Order
+        $detail->order->update([
+            'status_id' => 9,
+            'remarks'   => $request->remarks,
+        ]);
+
+        // Order Log
+        $detail->order->statusLogs()->create([
+            'status_id' => 9,
+            'acted_by'  => auth()->id(),
+            'remarks'   => 'Order returned to warehouse - ' . $request->remarks,
+        ]);
+
+        // Restock inventory
         $detail->product->increment('quantity', $detail->quantity);
 
         return back()->with('success', 'Item returned to warehouse.');
     }
 
-    public function forClaims(Request $request, OrderDetails $detail)
+        public function forClaims(Request $request, OrderDetails $detail)
     {
         $request->validate([
             'remarks' => 'required|string|max:255',
@@ -436,12 +449,25 @@ class OrderController extends Controller
             'remarks'   => $request->remarks,
         ]);
 
-        // 🔥 CREATE ITEM LOG
+        // Item Log
         $detail->detailsstatusLogs()->create([
             'status_id' => 10,
             'acted_by'  => auth()->id(),
             'acted_at'  => now(),
             'remarks'   => $request->remarks,
+        ]);
+
+        // Update Parent Order
+        $detail->order->update([
+            'status_id' => 10,
+            'remarks'   => $request->remarks,
+        ]);
+
+        // Order Log
+        $detail->order->statusLogs()->create([
+            'status_id' => 10,
+            'acted_by'  => auth()->id(),
+            'remarks'   => 'Order marked for claims - ' . $request->remarks,
         ]);
 
         return back()->with('success', 'Item marked for claims.');
@@ -452,19 +478,81 @@ class OrderController extends Controller
         $request->validate([
             'remarks' => 'required|string|max:255',
         ]);
-    
+
         $order->update([
             'status_id' => 2, // ✅ QC Done status
             'remarks'   => $request->remarks,
         ]);
-    
+
         $order->statusLogs()->create([
             'status_id' => 2,
             'acted_by'  => auth()->id(),
             'remarks'   => $request->remarks,
         ]);
-    
+
         return back()->with('success', 'Order marked as QC Done.');
+    }
+
+    public function refunded(Request $request, OrderDetails $detail)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+
+        $detail->update([
+            'status_id' => 11,
+            'remarks'   => $request->remarks,
+        ]);
+
+        $detail->detailsstatusLogs()->create([
+            'status_id' => 11,
+            'acted_by'  => auth()->id(),
+            'acted_at'  => now(),
+            'remarks'   => $request->remarks,
+        ]);
+
+        $detail->order->update([
+            'status_id' => 11,
+        ]);
+
+        $detail->order->statusLogs()->create([
+            'status_id' => 11,
+            'acted_by'  => auth()->id(),
+            'remarks'   => 'Order refunded - '.$request->remarks,
+        ]);
+
+        return back()->with('success','Order marked as Refunded.');
+    }
+
+    public function claimRejected(Request $request, OrderDetails $detail)
+    {
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
+
+        $detail->update([
+            'status_id' => 12,
+            'remarks'   => $request->remarks,
+        ]);
+
+        $detail->detailsstatusLogs()->create([
+            'status_id' => 12,
+            'acted_by'  => auth()->id(),
+            'acted_at'  => now(),
+            'remarks'   => $request->remarks,
+        ]);
+
+        $detail->order->update([
+            'status_id' => 12,
+        ]);
+
+        $detail->order->statusLogs()->create([
+            'status_id' => 12,
+            'acted_by'  => auth()->id(),
+            'remarks'   => 'Claim rejected - '.$request->remarks,
+        ]);
+
+        return back()->with('success','Claim rejected.');
     }
 
 }
