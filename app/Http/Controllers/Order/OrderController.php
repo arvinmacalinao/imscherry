@@ -251,7 +251,7 @@ class OrderController extends Controller
         ]);
 
         $pdf = Pdf::loadView('orders.print-invoice-single', compact('order'))
-        ->setPaper('letter', 'portrait');
+        ->setPaper($this->invoicePaper());
 
         return $pdf->download('invoice-' . $order->invoice_no . '.pdf');
     }
@@ -315,9 +315,25 @@ class OrderController extends Controller
             }
         });
 
-        $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'));
+        $pdf = Pdf::loadView('orders.print-invoice-pdf', compact('orders'))
+            ->setPaper($this->invoicePaper());
 
         return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    /**
+     * Paper size of the pre-printed invoice form, in points (see config/invoice.php).
+     */
+    private function invoicePaper(): array
+    {
+        $mmToPt = 72 / 25.4;
+
+        return [
+            0,
+            0,
+            config('invoice.paper_width_mm') * $mmToPt,
+            config('invoice.paper_height_mm') * $mmToPt,
+        ];
     }
 
     public function exportOrderSummary(Request $request)
