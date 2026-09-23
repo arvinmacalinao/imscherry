@@ -32,20 +32,21 @@
 
     .address {
         white-space: normal;
-        font-size: 8pt;
+        font-size: 7.5pt;
         line-height: 1.1;
-        height: 7mm;            /* max 2 lines, never runs into the table header */
+        height: 6.6mm;          /* max 2 lines, never runs into the table box */
         overflow: hidden;
     }
 
     .items {
-        width: 189mm;
+        width: 198.5mm;
         border-collapse: collapse;
         white-space: normal;
     }
-    .items td { padding: 0 0 1mm 0; vertical-align: top; }
-    .items .col-qty   { width: 14mm;  text-align: center; }
-    .items .col-desc  { width: 96.2mm; padding-left: 16.8mm; }   /* 113mm incl. padding */
-    .items .col-price { width: 27mm;  text-align: right; }
-    .items .col-total { width: 35mm;  text-align: right; }
+    .items td { padding: 0 0 0.6mm 0; line-height: 1.1; vertical-align: top; overflow: hidden; }
+    /* description may run under COLOR (not printed); prices line up under UNIT PRICE / TOTAL */
+    .items .col-qty   { width: 18.5mm; text-align: center; }
+    .items .col-desc  { width: 108mm; padding-left: 2mm; font-size: 9pt; white-space: nowrap; }  /* 110mm incl. padding, 1 line */
+    .items .col-price { width: 29mm;  text-align: right; }
+    .items .col-total { width: 41mm;  text-align: right; }
 </style>

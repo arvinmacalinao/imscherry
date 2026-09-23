@@ -1,8 +1,10 @@
 {{--
     One form = two copies (Customer Copy on top, Accounting Copy below) on the pre-printed form.
+    Positions fit both the Pure Living ("DR No.") and Cherry ("SR No.") forms; they differ by 1-2mm.
 
     Every field is placed at a fixed position in millimetres measured from the top-left corner
-    of the pre-printed form, so long names/addresses can never push other fields out of place.
+    of the pre-printed form (left edge = the perforation of the left tractor-hole strip),
+    so long names/addresses can never push other fields out of place.
 
     CALIBRATION:
       - Paper size and a global shift for EVERY field live in config/invoice.php.
@@ -12,21 +14,26 @@
 @php
     $offsetX = config('invoice.offset_x_mm', 0);
     $offsetY = config('invoice.offset_y_mm', 0);
-    $copyGap = 139.8;   // mm, top of Customer Copy -> top of Accounting Copy
+    $copyGap = 140.0;   // mm, top of Customer Copy -> top of Accounting Copy
     $maxRows = 10;      // item lines that fit inside the items box
+    $descChars = 52;    // 9pt mono characters that fit in the description column
+
+    // too many items: show one line less and say how many are not listed (grand total still counts all)
+    $shownItems = $order->details->count() > $maxRows ? $order->details->take($maxRows - 1) : $order->details;
+    $hiddenCount = $order->details->count() - $shownItems->count();
 
     // [left, top] in mm, relative to the top of one copy
     $f = [
-        'invoice_no'     => ['left'  => 163,  'top' => 14.4],
-        'tracking_label' => ['left'  => 130,  'top' => 20.8],
-        'tracking'       => ['left'  => 158,  'top' => 20.8],
-        'customer'       => ['left'  => 44.5, 'top' => 27.1],
-        'order_id'       => ['left'  => 160,  'top' => 27.1],
-        'address'        => ['left'  => 44.5, 'top' => 32.6, 'width' => 95],
-        'order_date'     => ['left'  => 160,  'top' => 32.9],
-        'items'          => ['left'  => 8,    'top' => 47.5],
-        'grand_total'    => ['left'  => 165,  'top' => 106.6, 'width' => 32],
-        'prepared_by'    => ['left'  => 13.5, 'top' => 122.5, 'width' => 55],
+        'invoice_no'     => ['left'  => 163,  'top' => 5.9],     // right of "DR No.:" / "SR No.:"
+        'tracking_label' => ['left'  => 138,  'top' => 15.5],    // clear of the "30 DAYS WARRANTY" stamp
+        'tracking'       => ['left'  => 164,  'top' => 15.5],
+        'customer'       => ['left'  => 26,   'top' => 28.2],    // right of "Customer:"
+        'order_id'       => ['left'  => 163,  'top' => 26.4],    // right of "Order ID:"
+        'address'        => ['left'  => 26,   'top' => 33.6, 'width' => 110],  // right of "Ship to:"
+        'order_date'     => ['left'  => 163,  'top' => 31.6],    // right of "Order date:"
+        'items'          => ['left'  => 5.5,  'top' => 47.8],    // just under the table header
+        'grand_total'    => ['left'  => 172,  'top' => 106.3, 'width' => 32],  // on the GRAND TOTAL line
+        'prepared_by'    => ['left'  => 13.7, 'top' => 123.1, 'width' => 54.8], // above the signature line
     ];
 
     $pos = function (string $key, float $copyTop) use ($f, $offsetX, $offsetY) {
@@ -57,14 +64,22 @@
         <div class="field" style="{{ $pos('order_date', $copyTop) }}">{{ $order->order_date?->format('F j, Y') }}</div>
 
         <table class="field items" style="{{ $pos('items', $copyTop) }}">
-            @foreach ($order->details->take($maxRows) as $item)
+            @foreach ($shownItems as $item)
                 <tr>
                     <td class="col-qty">{{ $item->quantity }}</td>
-                    <td class="col-desc">{{ $item->product->name ?? $item->product_name }}</td>
+                    <td class="col-desc">{{ Str::limit($item->product->name ?? $item->product_name, $descChars, '..') }}</td>
                     <td class="col-price">{{ number_format($item->unit_price ?? 0, 2) }}</td>
                     <td class="col-total">{{ number_format($item->quantity * ($item->unit_price ?? 0), 2) }}</td>
                 </tr>
             @endforeach
+            @if ($hiddenCount > 0)
+                <tr>
+                    <td class="col-qty"></td>
+                    <td class="col-desc">+ {{ $hiddenCount }} more item(s) - see order {{ $order->order_number }}</td>
+                    <td class="col-price"></td>
+                    <td class="col-total"></td>
+                </tr>
+            @endif
         </table>
 
         <div class="field text-right" style="{{ $pos('grand_total', $copyTop) }}">{{ number_format($grandTotal, 2) }}</div>
