@@ -246,7 +246,7 @@ class OrderImportController extends Controller
                             'order_id'   => $order->id,
                             'product_id' => $productId,
                             'sku'        => $item['skuReferenceNo'],
-                            'name'       => $item['productName'],
+                            'product_name' => $item['productName'],
                             'quantity'   => $item['quantity'],
                             'unit_price'      => $item['unitPrice'],
                         ]);
@@ -494,7 +494,7 @@ class OrderImportController extends Controller
                             'order_id'   => $order->id,
                             'product_id' => $productId,
                             'sku'        => $item['skuReferenceNo'],
-                            'name'       => $item['productName'],
+                            'product_name' => $item['productName'],
                             'quantity'   => $item['quantity'],
                             'unit_price'      => $item['unitPrice'],
                         ]);
@@ -764,7 +764,7 @@ class OrderImportController extends Controller
                             'order_id'   => $order->id,
                             'product_id' => $productId,
                             'sku'        => $item['skuReferenceNo'],
-                            'name'       => $item['productName'],
+                            'product_name' => $item['productName'],
                             'quantity'   => $item['quantity'],
                             'unit_price'      => $item['unitPrice'],
                         ]);
@@ -1049,7 +1049,7 @@ class OrderImportController extends Controller
                                 'order_id'   => $order->id,
                                 'product_id' => $productId,
                                 'sku'        => $sku,
-                                'name'       => $group->first()['productName'],
+                                'product_name' => $group->first()['productName'],
                                 'quantity'   => $quantity,
                                 'unit_price'      => $quantity > 0 ? $total / $quantity : 0,
                             ]);
@@ -1066,7 +1066,7 @@ class OrderImportController extends Controller
                         //         'order_id'   => $order->id,
                         //         'product_id' => $productId,
                         //         'sku'        => $sku,
-                        //         'name'       => $group->first()['productName'],
+                        //         'product_name' => $group->first()['productName'],
                         //         'quantity'   => $quantity,
                         //         'price'      => $unitPrice, // unit price
                         //         'total'      => $total,     // ✅ actual platform total
@@ -1297,7 +1297,7 @@ class OrderImportController extends Controller
                             'order_id'   => $order->id,
                             'product_id' => $productId,
                             'sku'        => $item['skuReferenceNo'],
-                            'name'       => $item['productName'],
+                            'product_name' => $item['productName'],
                             'quantity'   => $item['quantity'],
                             'unit_price'      => $item['prodsubtotal'] > 0
                                 ? $item['prodsubtotal'] / max($item['quantity'],1)

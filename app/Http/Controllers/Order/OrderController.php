@@ -116,14 +116,18 @@ class OrderController extends Controller
         // --- Create Order Details + Stock Deduction ---
         $cartItems = Cart::instance('order')->content();
 
+        $cartProducts = Product::whereIn('id', $cartItems->pluck('id'))->get()->keyBy('id');
+
         foreach ($cartItems as $item) {
 
-            // Insert order detail
+            // Insert order detail (sku and product_name are required columns)
             OrderDetails::create([
-                'order_id'   => $order->id,
-                'product_id' => $item->id,
-                'quantity'   => $item->qty,
-                'unit_price' => $item->price,
+                'order_id'     => $order->id,
+                'product_id'   => $item->id,
+                'product_name' => $cartProducts[$item->id]->name ?? $item->name,
+                'sku'          => $cartProducts[$item->id]->sku ?? '',
+                'quantity'     => $item->qty,
+                'unit_price'   => $item->price,
             ]);
 
             // // Deduct stock
