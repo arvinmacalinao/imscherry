@@ -179,9 +179,9 @@
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('order_date')" href="#" role="button">
-                            {{ __('Date') }}
-                            @include('inclues._sort-icon', ['field' => 'order_date'])
+                        <a wire:click.prevent="sortBy('created_at')" href="#" role="button">
+                            {{ __('Date Imported') }}
+                            @include('inclues._sort-icon', ['field' => 'created_at'])
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
@@ -236,7 +236,8 @@
                         {{ $order->shopName->invoice_prefix ?? '' }}
                     </td>
                     <td class="align-middle text-center">
-                        {{ $order->order_date?->format('d-m-Y') ?? '-' }}
+                        {{-- the day the order was imported (the From / To filter uses the same date) --}}
+                        {{ $order->created_at?->format('d-m-Y') ?? '-' }}
                     </td>
                     <td class="align-middle text-center">
                         {{ Number::currency($order->total, 'PHP') }}

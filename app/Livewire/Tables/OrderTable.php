@@ -34,7 +34,7 @@ class OrderTable extends Component
     /** Columns the table may be sorted by (anything else falls back to invoice no.) */
     private const SORTABLE = [
         'order_number', 'invoice_no', 'tracking_number', 'customer_name',
-        'shop_name_id', 'order_date', 'total', 'status_id',
+        'shop_name_id', 'created_at', 'total', 'status_id',
     ];
 
     /** Changing any of these filters starts again on page 1 and clears the ticked orders */
@@ -91,9 +91,9 @@ class OrderTable extends Component
             // 🎯 UI status filter (within the allowed statuses)
             ->when($this->orderStatus, fn ($q) => $q->where('status_id', $this->orderStatus))
             ->when($this->shopFilter, fn ($q) => $q->where('shop_name_id', $this->shopFilter))
-            // each date works on its own; both = a range
-            ->when($this->date_from, fn ($q) => $q->whereDate('order_date', '>=', $this->date_from))
-            ->when($this->date_to, fn ($q) => $q->whereDate('order_date', '<=', $this->date_to))
+            // dates = when the order was imported (the Date column); each works on its own, both = a range
+            ->when($this->date_from, fn ($q) => $q->whereDate('orders.created_at', '>=', $this->date_from))
+            ->when($this->date_to, fn ($q) => $q->whereDate('orders.created_at', '<=', $this->date_to))
             ->search($this->search)
             ->orderBy(in_array($this->sortField, self::SORTABLE, true) ? $this->sortField : 'invoice_no', $this->sortAsc ? 'asc' : 'desc')
             ->orderByDesc('id');

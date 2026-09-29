@@ -24,6 +24,17 @@ class OrderStatusLog extends Model
         'acted_at' => 'datetime',
     ];
 
+    /**
+     * Always set the time from the app (Philippine time), never from the database's
+     * CURRENT_TIMESTAMP default, which uses the database server's own timezone.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            $model->acted_at ??= now();
+        });
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Relationships
