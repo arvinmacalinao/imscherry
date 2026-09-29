@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ScanLog;
 use App\Models\ProductPull;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Gloudemans\Shoppingcart\Facades\Cart;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -59,12 +60,8 @@ class ScanController extends Controller
 
         $trackingOrOrder = trim($request->tracking_number);
 
-        // REQUIRED STATUS PER FLOW
-        $requiredStatus = match ($type) {
-            'ship' => 2,
-            'return' => 3,
-            default => null,
-        };
+        // REQUIRED STATUS PER FLOW (checked again when the list is confirmed)
+        $requiredStatus = self::requiredStatuses($type);
 
         // FIND ORDER
         $order = Order::with('details.product')
@@ -72,9 +69,7 @@ class ScanController extends Controller
                 $query->where('tracking_number', $trackingOrOrder)
                     ->orWhere('order_number', $trackingOrOrder);
             })
-            ->when($requiredStatus, function ($query) use ($requiredStatus) {
-                $query->where('status_id', $requiredStatus);
-            })
+            ->whereIn('status_id', $requiredStatus)
             ->first();
 
         // ✅ IMPORTANT — HANDLE NOT FOUND
@@ -83,7 +78,7 @@ class ScanController extends Controller
             $statusText = match ($type) {
                 'ship' => 'QC Done',
                 'return' => 'Shipped',
-                default => 'valid',
+                default => 'a not-yet-shipped',
             };
 
             return back()->with(
@@ -154,16 +149,28 @@ class ScanController extends Controller
         $updatedCount = 0;
         $userId = auth()->id();
 
-        // ✅ store export data
+        // ✅ store export data (every scanned order, with what happened to it)
         $exportData = [];
 
         foreach ($cart as $item) {
 
-            $order = Order::find($item->id);
+            // re-check the status now: the order may have changed since it was scanned
+            // (e.g. cancelled or re-invoiced in the meantime), so a cancelled order is never shipped
+            $result = DB::transaction(function () use ($item, $type, $statusMap, $fieldMap, $userId) {
+                $order = Order::whereKey($item->id)->lockForUpdate()->first();
 
-            if ($order && $order->status_id != $statusMap[$type]) {
+                if (! $order) {
+                    return [null, 'Skipped: order not found'];
+                }
+
+                if (! in_array($order->status_id, self::requiredStatuses($type))) {
+                    return [$order, 'Skipped: order is now ' . ($order->status->name ?? 'status ' . $order->status_id)];
+                }
 
                 $oldStatus = $order->status_id;
+
+                // cancelling an order that was already picked puts its stock back
+                $restocked = $type === 'cancelled' ? $order->restockPickedItems() : 0;
 
                 $order->update([
                     'status_id'            => $statusMap[$type],
@@ -185,23 +192,31 @@ class ScanController extends Controller
                     'remarks'   => match ($type) {
                         'ship'      => 'Order shipped via scan confirmation',
                         'return'    => 'Order marked as returned via scan confirmation',
-                        'cancelled' => 'Order cancelled via scan confirmation',
+                        'cancelled' => 'Order cancelled via scan confirmation'
+                            . ($restocked ? " ({$restocked} picked unit(s) put back in stock)" : ''),
                         default     => 'Order status updated via scan confirmation',
                     },
                 ]);
 
-                // ✅ collect export row
-                $exportData[] = [
-                    'Order Number'   => $order->order_number,
-                    'Tracking Number'=> $order->tracking_number,
-                    'Customer'       => $order->customer_name,
-                    'Type'           => strtoupper($type),
-                    'Scanned By'     => auth()->user()->name ?? 'N/A',
-                    'Scanned At'     => now()->format('Y-m-d H:i:s'),
-                ];
+                return [$order, 'Updated' . ($restocked ? ", {$restocked} unit(s) put back in stock" : '')];
+            });
 
+            [$order, $outcome] = $result;
+
+            if (str_starts_with($outcome, 'Updated')) {
                 $updatedCount++;
             }
+
+            // ✅ collect export row
+            $exportData[] = [
+                'Order Number'   => $order->order_number ?? $item->name,
+                'Tracking Number'=> $order->tracking_number ?? '',
+                'Customer'       => $order->customer_name ?? '',
+                'Type'           => strtoupper($type),
+                'Result'         => $outcome,
+                'Scanned By'     => auth()->user()->name ?? 'N/A',
+                'Scanned At'     => now()->format('Y-m-d H:i:s'),
+            ];
         }
 
         // ✅ destroy cart AFTER processing
@@ -301,6 +316,20 @@ class ScanController extends Controller
     // }
 
 
+
+    /**
+     * Statuses an order must have to be ship / return / cancel scanned.
+     * Cancel only applies to orders that have not left the warehouse; a shipped order that
+     * comes back goes through the return scan.
+     */
+    private static function requiredStatuses(string $type): array
+    {
+        return match ($type) {
+            'ship'   => [2],          // QC Done
+            'return' => [3],          // Packed/Shipped
+            default  => Order::IN_WAREHOUSE_STATUSES,
+        };
+    }
 
     /**
      * ✅ Remove from cart dynamically

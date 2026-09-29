@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Order;
+use App\Models\Product;
 use Livewire\Component;
 use App\Models\OrderDetail;
 use App\Models\ProductPull;
@@ -27,9 +28,11 @@ class OrderScanner extends Component
             'scanQty' => 'required|integer|min:1',
         ]);
 
-        $detail = $this->order->details
-            ->where('product.sku', $this->barcode)
-            ->first();
+        // the same SKU can be on more than one line: use the first line that still needs units
+        $lines = $this->order->details->filter(
+            fn ($line) => ($line->product->sku ?? $line->sku) == $this->barcode
+        );
+        $detail = $lines->first(fn ($line) => $line->scanned_qty < $line->quantity) ?? $lines->first();
 
 
         if (!$detail) {
@@ -39,38 +42,39 @@ class OrderScanner extends Component
             return;
         }
 
-        $remaining = $detail->quantity - $detail->scanned_qty;
+        // checked again on fresh, locked rows: another station may have picked in the meantime
+        $error = DB::transaction(function () use ($detail) {
+            $order = Order::whereKey($this->order->id)->lockForUpdate()->first();
+            $detail = $detail->newQuery()->whereKey($detail->id)->lockForUpdate()->first();
+            $product = Product::whereKey($detail->product_id)->lockForUpdate()->first();
+            $name = $product->name ?? $detail->product_name;
 
-        if ($remaining <= 0) {
-            $this->message = "⚠️ {$detail->product->name} already completed.";
-            $this->reset(['barcode']);
-            $this->scanQty = 1;
-            return;
-        }
+            if ($order->status_id != 5) {
+                return "❌ This order is no longer Invoiced ({$order->status->name}); it cannot be picked.";
+            }
 
-        if ($this->scanQty > $remaining) {
-            $this->message = "⚠️ You can only scan {$remaining} more for {$detail->product->name}.";
-            return;
-        }
+            $remaining = $detail->quantity - $detail->scanned_qty;
 
-        $product = $detail->product;
+            if ($remaining <= 0) {
+                return "⚠️ {$name} already completed.";
+            }
 
-        // STOCK CHECK
-        if ($product->quantity < $this->scanQty) {
-            $this->message = "❌ Not enough stock. Available: {$product->quantity}";
-            return;
-        }
+            if ($this->scanQty > $remaining) {
+                return "⚠️ You can only scan {$remaining} more for {$name}.";
+            }
 
-        DB::transaction(function () use ($detail, $product) {
+            // STOCK CHECK
+            if (! $product || $product->quantity < $this->scanQty) {
+                return "❌ Not enough stock. Available: " . ($product->quantity ?? 0);
+            }
+
             // 1. UPDATE SCANNED QTY
             $detail->increment('scanned_qty', $this->scanQty);
 
-            
             // 2. DEDUCT PRODUCT STOCK
             $product->decrement('quantity', $this->scanQty);
 
             // 3. RECORD PRODUCT PULL
-            
             ProductPull::create([
                 'product_id'  => $product->id,
                 'order_id'    => $this->order->id,
@@ -79,7 +83,21 @@ class OrderScanner extends Component
                 'pulled_at'   => now(),
                 'status'      => 'completed',
             ]);
+
+            return null;
         });
+
+        if ($error) {
+            $this->message = $error;
+            $this->reset(['barcode']);
+            $this->scanQty = 1;
+            $this->order->refresh()->load('details.product');
+            return;
+        }
+
+        // the lines were updated on fresh copies: reload before checking whether picking is complete
+        $this->order->load('details.product');
+        $product = $detail->product;
 
         $this->message = "✔ Pulled {$this->scanQty} × {$detail->product->name} | Stock left: {$product->fresh()->quantity}";
         $this->reset(['barcode']);
