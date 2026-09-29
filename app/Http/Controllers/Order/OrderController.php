@@ -242,13 +242,7 @@ class OrderController extends Controller
         ->where('id', $order)
         ->firstOrFail();
 
-        $order->update(['status_id' => 5]);
-
-        $order->statusLogs()->create([
-            'status_id' => 5,
-            'acted_by'  => auth()->id(),
-            'remarks'   => "Order Invoiced",
-        ]);
+        $this->markInvoiced($order, 'Order Invoiced');
 
         $pdf = Pdf::loadView('orders.print-invoice-single', compact('order'))
         ->setPaper($this->invoicePaper());
@@ -296,22 +290,8 @@ class OrderController extends Controller
         }
 
         DB::transaction(function () use ($orders, $request) {
-
             foreach ($orders as $order) {
-
-                // Prevent duplicate invoicing logs
-                if ($order->status_id != 5) {
-
-                    $order->update([
-                        'status_id' => 5
-                    ]);
-
-                    $order->statusLogs()->create([
-                        'status_id' => 5,
-                        'acted_by'  => auth()->id(),
-                        'remarks'   => $request->remarks ?? 'Invoice generated',
-                    ]);
-                }
+                $this->markInvoiced($order, $request->remarks ?? 'Invoice generated');
             }
         });
 
@@ -319,6 +299,26 @@ class OrderController extends Controller
             ->setPaper($this->invoicePaper());
 
         return $pdf->download('invoices-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    /**
+     * Printing an invoice moves an Imported order to Invoiced. Orders at any other status
+     * (already invoiced, picked, QC done, shipped, returned...) are only reprinted: their
+     * status must never go back to Invoiced, and a reprint adds no status log.
+     */
+    private function markInvoiced(Order $order, string $remarks): void
+    {
+        if ($order->status_id != 1) { // 1 = Imported
+            return;
+        }
+
+        $order->update(['status_id' => 5]); // 5 = Invoiced
+
+        $order->statusLogs()->create([
+            'status_id' => 5,
+            'acted_by'  => auth()->id(),
+            'remarks'   => $remarks,
+        ]);
     }
 
     /**
