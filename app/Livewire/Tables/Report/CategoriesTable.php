@@ -47,23 +47,6 @@ class CategoriesTable extends Component
         $this->selectAll = false; // if user toggles individually, disable "select all"
     }
 
-    public function deleteSelected()
-    {
-        if (empty($this->selected)) {
-            session()->flash('error', 'No orders selected.');
-            return;
-        }
-
-        Order::whereIn('id', $this->selected)->delete();
-
-        $this->selected = [];
-        $this->selectAll = false;
-
-        session()->flash('success', 'Selected orders deleted successfully.');
-
-        $this->resetPage();
-    }
-
     public function mount()
     {
         $this->statuses = OrderStatus::orderBy('name')->get();

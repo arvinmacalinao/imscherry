@@ -58,28 +58,29 @@ class DashboardController extends Controller
         // -------------------------
         // PARCEL RETURNED (THIS PERIOD)
         // -------------------------
-        $returnedOrders = Order::where('status_id', 4)
+        // returned orders, including those whose items were since restocked / claimed / refunded
+        $returnedOrders = Order::whereIn('status_id', \App\Reports\ReportStatus::RETURNED_ORDER)
             ->whereBetween('updated_at', [$start, $end])
             ->count();
 
          // -------------------------
-        // PENDING (status_id = 8)
+        // PENDING (status_id = 7)
         // -------------------------
-        $pendingOrders = Order::where('status_id', 8)
+        $pendingOrders = Order::where('status_id', 7)
             ->whereBetween('created_at', [$start, $end])
             ->count();
 
         // -------------------------
-        // FOR CLAIMS (status_id = 9)
+        // FOR CLAIMS (status_id = 10)
         // -------------------------
-        $forClaimsOrders = Order::where('status_id', 9)
+        $forClaimsOrders = Order::where('status_id', 10)
             ->whereBetween('created_at', [$start, $end])
             ->count();
 
         // -------------------------
-        // REFUNDED (status_id = 10)
+        // REFUNDED (status_id = 11)
         // -------------------------
-        $refundedOrders = Order::where('status_id', 10)
+        $refundedOrders = Order::where('status_id', 11)
             ->whereBetween('updated_at', [$start, $end])
             ->count();
 

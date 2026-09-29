@@ -117,14 +117,6 @@
                     Download Invoice (<span x-text="$wire.selected.length">{{ count($selected) }}</span>)
                 </button>
 
-                {{-- <button
-                    class="btn btn-sm btn-outline-danger"
-                    wire:click="deleteSelected"
-                    x-bind:disabled="$wire.selected.length === 0"
-                    onclick="return confirm('Are you sure you want to delete the selected orders?')"
-                >
-                    Delete Orders ({{ count($selected) }})
-                </button> --}}
             </div>
 
             <div class="text-secondary">
@@ -261,7 +253,7 @@
                             @if($canPrint)
                                 <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" target="_blank"/>
                             @endif
-                            @if(is_null($order->tracking_number))
+                            @if(blank($order->tracking_number))
                                 <button
                                     class="btn btn-warning btn-icon"
                                     wire:click="$dispatch('openTrackingModal', { orderId: {{ $order->id }} })"

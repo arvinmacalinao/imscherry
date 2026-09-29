@@ -52,13 +52,13 @@ class OrderTable extends Component
     ];
 
     /**
-     * Statuses the current user's role may see; null = all.
+     * Statuses the current user's role may see; null = all, [] = none (user without a role).
      */
     private function allowedStatuses(): ?array
     {
         $user = auth()->user();
 
-        if ($user->hasRole('admin') || $user->hasRole('ecom')) {
+        if ($user->hasRole('admin') || $user->hasRole('ecommerce-assistant')) {
             return null; // see everything
         }
         if ($user->hasRole('accounting')) {
@@ -70,11 +70,11 @@ class OrderTable extends Component
         if ($user->hasRole('qc')) {
             return [8, 2];
         }
-        if ($user->hasRole('Packer')) {
+        if ($user->hasRole('packer')) {
             return [2, 3];
         }
 
-        return null;
+        return []; // no role yet: no orders until an admin assigns one
     }
 
     /**
@@ -87,7 +87,7 @@ class OrderTable extends Component
 
         return Order::query()
             // 🔒 ROLE-BASED RESTRICTION
-            ->when($allowedStatuses, fn ($q) => $q->whereIn('status_id', $allowedStatuses))
+            ->when($allowedStatuses !== null, fn ($q) => $q->whereIn('status_id', $allowedStatuses))
             // 🎯 UI status filter (within the allowed statuses)
             ->when($this->orderStatus, fn ($q) => $q->where('status_id', $this->orderStatus))
             ->when($this->shopFilter, fn ($q) => $q->where('shop_name_id', $this->shopFilter))
@@ -110,28 +110,11 @@ class OrderTable extends Component
             : [];
     }
 
-    public function deleteSelected()
-    {
-        if (empty($this->selected)) {
-            session()->flash('error', 'No orders selected.');
-            return;
-        }
-
-        Order::whereIn('id', $this->selected)->delete();
-
-        $this->selected = [];
-        $this->selectAll = false;
-
-        session()->flash('success', 'Selected orders deleted successfully.');
-
-        $this->resetPage();
-    }
-
     public function mount()
     {
         // only offer the statuses this role can actually see, in workflow order
         $allowed = $this->allowedStatuses();
-        $this->statuses = OrderStatus::when($allowed, fn ($q) => $q->whereIn('id', $allowed))->orderBy('id')->get();
+        $this->statuses = OrderStatus::when($allowed !== null, fn ($q) => $q->whereIn('id', $allowed))->orderBy('id')->get();
         $this->shops = ShopName::orderBy('name')->get();
     }
 

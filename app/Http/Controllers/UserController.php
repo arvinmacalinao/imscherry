@@ -30,7 +30,10 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
-        $user = User::create($request->all());
+        $user = User::create([
+            ...$request->safe()->only(['name', 'email', 'username']),
+            'password' => Hash::make($request->password), // was saved as plain text, so the user could not log in
+        ]);
 
         $user->roles()->attach($request->role_id);
 
@@ -65,7 +68,7 @@ class UserController extends Controller
 //            $validatedData['email_verified_at'] = null;
 //        }
 
-        $user->update($request->all());
+        $user->update($request->safe()->only(['name', 'email', 'username']));
 
         $user->roles()->sync([$request->role_id]);
 
