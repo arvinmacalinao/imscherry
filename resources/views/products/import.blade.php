@@ -3,6 +3,7 @@
 @section('content')
 <div class="page-body">
     <div class="container-xl">
+        <x-alert/>
 
         <form action="{{ route('products.import.store') }}" method="POST" enctype="multipart/form-data">
             @csrf

@@ -73,6 +73,7 @@ class OrderScanner extends Component
             
             ProductPull::create([
                 'product_id'  => $product->id,
+                'order_id'    => $this->order->id,
                 'employee_id' => auth()->id(),
                 'quantity'    => $this->scanQty,
                 'pulled_at'   => now(),

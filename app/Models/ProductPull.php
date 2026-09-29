@@ -14,8 +14,9 @@ class ProductPull extends Model
     protected $table = 'product_pulls';
 
     protected $fillable = [
-        'product_id',  
-        'employee_id', 
+        'product_id',
+        'order_id',    // set when the pull is order picking; empty for the warehouse pull page
+        'employee_id',
         'quantity',    
         'pulled_at',   
         'status',      

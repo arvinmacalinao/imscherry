@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Product;
 use App\Models\Unit;
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\ProductRestockLog;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -51,6 +52,9 @@ class ProductController extends Controller
         // }
         try {
             $product = Product::create($request->all());
+
+            // starting stock shows as "Manual adjustment" in the warehouse report
+            ProductRestockLog::record($product, 0, (int) $product->quantity, 'manual');
 
             return redirect()
                 ->back()
@@ -106,7 +110,12 @@ class ProductController extends Controller
 
     public function update(UpdateProductRequest $request, Product $product)
     {
+        $oldQuantity = (int) $product->quantity;
+
         $product->update($request->except('product_image'));
+
+        // a quantity typed into the form shows as "Manual adjustment" in the warehouse report
+        ProductRestockLog::record($product, $oldQuantity, (int) $product->quantity, 'manual');
 
         // if ($request->hasFile('product_image')) {
 
