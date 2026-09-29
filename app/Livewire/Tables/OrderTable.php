@@ -2,22 +2,23 @@
 
 namespace App\Livewire\Tables;
 
-use Log;
 use App\Models\Order;
 use Livewire\Component;
 use App\Models\ShopName;
 use App\Models\OrderStatus;
 use Livewire\WithPagination;
+use Livewire\Attributes\Url;
 use App\Exports\OrderSummaryExport;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Storage;
 use App\Exports\OrderSummaryExportWarehouse;
+use Illuminate\Database\Eloquent\Builder;
 
 class OrderTable extends Component
 {
     use WithPagination;
 
     public $perPage = 10;
+    #[Url(except: '')]
     public $search = '';
     public $sortField = 'invoice_no';
     public $sortAsc = false;
@@ -30,6 +31,15 @@ class OrderTable extends Component
     public $date_from;
     public $date_to;
 
+    /** Columns the table may be sorted by (anything else falls back to invoice no.) */
+    private const SORTABLE = [
+        'order_number', 'invoice_no', 'tracking_number', 'customer_name',
+        'shop_name_id', 'order_date', 'total', 'status_id',
+    ];
+
+    /** Changing any of these filters starts again on page 1 and clears the ticked orders */
+    private const FILTERS = ['search', 'orderStatus', 'shopFilter', 'date_from', 'date_to', 'perPage'];
+
     public $statusColors = [
         1 => 'table-info',      // Imported
         2 => 'table-info',      // QC Done
@@ -41,26 +51,63 @@ class OrderTable extends Component
         8 => 'table-info',      // Picked
     ];
 
-    public function updatedSelectAll($value)
+    /**
+     * Statuses the current user's role may see; null = all.
+     */
+    private function allowedStatuses(): ?array
     {
-        if ($value) {
-            $this->selected = Order::query()
-                ->when($this->orderStatus, function ($query) {
-                    $query->where('status_id', $this->orderStatus);
-                })
-                ->search($this->search)
-                ->orderBy($this->sortField, $this->sortAsc ? 'asc' : 'desc')
-                ->paginate($this->perPage)
-                ->pluck('id')
-                ->toArray();
-        } else {
-            $this->selected = [];
+        $user = auth()->user();
+
+        if ($user->hasRole('admin') || $user->hasRole('ecom')) {
+            return null; // see everything
         }
+        if ($user->hasRole('accounting')) {
+            return [1, 5]; // Imported + Invoiced
+        }
+        if ($user->hasRole('warehouse')) {
+            return [5, 8, 7];
+        }
+        if ($user->hasRole('qc')) {
+            return [8, 2];
+        }
+        if ($user->hasRole('Packer')) {
+            return [2, 3];
+        }
+
+        return null;
     }
 
-    public function updatedSelected()
+    /**
+     * The orders the table shows: role restriction + every filter + search.
+     * "Select all" uses the same query, so it ticks exactly the orders on screen.
+     */
+    private function ordersQuery(): Builder
     {
-        $this->selectAll = false; // if user toggles individually, disable "select all"
+        $allowedStatuses = $this->allowedStatuses();
+
+        return Order::query()
+            // 🔒 ROLE-BASED RESTRICTION
+            ->when($allowedStatuses, fn ($q) => $q->whereIn('status_id', $allowedStatuses))
+            // 🎯 UI status filter (within the allowed statuses)
+            ->when($this->orderStatus, fn ($q) => $q->where('status_id', $this->orderStatus))
+            ->when($this->shopFilter, fn ($q) => $q->where('shop_name_id', $this->shopFilter))
+            // each date works on its own; both = a range
+            ->when($this->date_from, fn ($q) => $q->whereDate('order_date', '>=', $this->date_from))
+            ->when($this->date_to, fn ($q) => $q->whereDate('order_date', '<=', $this->date_to))
+            ->search($this->search)
+            ->orderBy(in_array($this->sortField, self::SORTABLE, true) ? $this->sortField : 'invoice_no', $this->sortAsc ? 'asc' : 'desc')
+            ->orderByDesc('id');
+    }
+
+    public function updatedSelectAll($value)
+    {
+        $this->selected = $value
+            ? $this->ordersQuery()
+                ->paginate($this->perPage)
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->toArray()
+            : [];
     }
 
     public function deleteSelected()
@@ -82,32 +129,30 @@ class OrderTable extends Component
 
     public function mount()
     {
-        $this->statuses = OrderStatus::orderBy('name')->get();
+        // only offer the statuses this role can actually see, in workflow order
+        $allowed = $this->allowedStatuses();
+        $this->statuses = OrderStatus::when($allowed, fn ($q) => $q->whereIn('id', $allowed))->orderBy('id')->get();
         $this->shops = ShopName::orderBy('name')->get();
-
-    }
-
-    public function updatedOrderStatus()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedShopFilter()
-    {
-        $this->resetPage();
     }
 
     public function updated($field)
     {
-        if (in_array($field, ['date_from', 'date_to'])) {
+        if (in_array($field, self::FILTERS, true)) {
             $this->resetPage();
+            $this->reset(['selected', 'selectAll']);
         }
     }
 
-    public function clearDateFilter()
+    // a new page shows different orders: "select all" no longer applies
+    public function updatedPage()
     {
-        $this->date_from = null;
-        $this->date_to = null;
+        $this->selectAll = false;
+    }
+
+    public function clearFilters()
+    {
+        $this->reset(['search', 'orderStatus', 'shopFilter', 'date_from', 'date_to', 'selected', 'selectAll']);
+        $this->resetPage();
     }
 
     public function sortBy($field): void
@@ -124,8 +169,6 @@ class OrderTable extends Component
 
     public function printInvoiceSelected()
     {
-        // Log::info('printInvoiceSelected called', ['selected' => $this->selected]);
-
         if (empty($this->selected)) {
             $this->dispatch('notify', type: 'error', message: 'No orders selected.');
             return;
@@ -184,60 +227,10 @@ class OrderTable extends Component
 
     public function render()
     {
-        \Log::info('Filtering by status ID: ' . $this->orderStatus);
-
-        $user = auth()->user();
-
-        // ✅ Default = all statuses
-        $allowedStatuses = null;
-
-        // Accounting restriction
-        if ($user->hasRole('admin') || $user->hasRole('ecom')) {
-        $allowedStatuses = null; // see everything
-        }
-        else if ($user->hasRole('accounting')) {
-            $allowedStatuses = [1, 5]; // Imported + Invoiced
-        }
-        else if($user->hasRole('warehouse')){
-            $allowedStatuses = [5, 8, 7];
-        }
-        else if($user->hasRole('qc')){
-            $allowedStatuses = [8, 2];
-        }
-        else if($user->hasRole('Packer')){
-            $allowedStatuses = [2, 3];
-        }
-
-        $orders = Order::query()
-            ->with(['status', 'customer', 'details', 'shopName'])
-
-            // 🔒 ROLE-BASED RESTRICTION
-            ->when($allowedStatuses, function ($query) use ($allowedStatuses) {
-                $query->whereIn('status_id', $allowedStatuses);
-            })
-
-            // 🎯 UI status filter (still works but within allowed)
-            ->when($this->orderStatus, function ($query) {
-                $query->where('status_id', $this->orderStatus);
-            })
-
-            ->when($this->shopFilter, fn($q) =>
-                $q->where('shop_name_id', $this->shopFilter)
-            )
-
-            ->when($this->date_from && $this->date_to, function ($query) {
-                $query->whereBetween('order_date', [
-                    $this->date_from . ' 00:00:00',
-                    $this->date_to . ' 23:59:59'
-                ]);
-            })
-
-            ->search($this->search)
-            ->orderBy($this->sortField, $this->sortAsc ? 'asc' : 'desc')
-            ->paginate($this->perPage);
-
         return view('livewire.tables.order-table', [
-            'orders' => $orders,
+            'orders' => $this->ordersQuery()
+                ->with(['status', 'details', 'shopName'])
+                ->paginate($this->perPage),
         ]);
     }
 

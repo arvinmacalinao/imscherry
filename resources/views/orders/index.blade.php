@@ -12,7 +12,7 @@
         button_route2="{{ route('orders.import.view') }}"
     />
     @else
-    <div class="container-xl">
+    <div class="container-fluid">
         <x-alert/>
 
         <livewire:tables.order-table />

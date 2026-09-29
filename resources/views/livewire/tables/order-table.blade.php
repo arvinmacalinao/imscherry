@@ -57,7 +57,7 @@
             <div class="text-secondary me-3">
                 Search:
                 <div class="ms-2 d-inline-block">
-                    <input type="text" wire:model.live="search"
+                    <input type="text" wire:model.live.debounce.400ms="search"
                            class="form-control form-control-sm"
                            placeholder="Invoice / Customer / Order #">
                 </div>
@@ -82,8 +82,8 @@
             {{-- Clear Button --}}
             <div class="text-secondary d-flex align-items-end">
                 <button class="btn btn-sm btn-outline-secondary"
-                        wire:click="clearDateFilter">
-                    Clear Dates
+                        wire:click="clearFilters">
+                    Clear Filters
                 </button>
             </div>
 
@@ -97,30 +97,30 @@
             <div class="d-flex flex-wrap gap-2 my-2">
                 <button class="btn btn-sm btn-outline-secondary"
                 wire:click="printWarehouseSummarySelected"
-                @disabled(count($selected) === 0)
+                x-bind:disabled="$wire.selected.length === 0"
                 onclick="return confirm('Are you sure you want to print the order summary of these orders?')">
-                Download Order Details ({{ count($selected) }})
+                Download Order Details (<span x-text="$wire.selected.length">{{ count($selected) }}</span>)
                 </button>
 
                 <button class="btn btn-sm btn-outline-secondary"
                 wire:click="printSummarySelected"
-                @disabled(count($selected) === 0)
+                x-bind:disabled="$wire.selected.length === 0"
                 onclick="return confirm('Are you sure you want to download order summary of these orders?')">
-                Download Order Qty Summary  ({{ count($selected) }})
+                Download Order Qty Summary  (<span x-text="$wire.selected.length">{{ count($selected) }}</span>)
                 </button>
 
                 <button class="btn btn-sm btn-outline-secondary"
                     wire:click="printInvoiceSelected"
-                    @disabled(count($selected) === 0)
+                    x-bind:disabled="$wire.selected.length === 0"
                     onclick="return confirm('Are you sure you want to print the invoice of selected orders?')"
                 >
-                    Download Invoice ({{ count($selected) }})
+                    Download Invoice (<span x-text="$wire.selected.length">{{ count($selected) }}</span>)
                 </button>
 
                 {{-- <button
                     class="btn btn-sm btn-outline-danger"
                     wire:click="deleteSelected"
-                    @disabled(count($selected) === 0)
+                    x-bind:disabled="$wire.selected.length === 0"
                     onclick="return confirm('Are you sure you want to delete the selected orders?')"
                 >
                     Delete Orders ({{ count($selected) }})
@@ -135,7 +135,7 @@
                         <option value="10">10</option>
                         <option value="15">15</option>
                         <option value="25">25</option>
-                        <option value="25">50</option>
+                        <option value="50">50</option>
                     </select>
                 </div>
                 entries
@@ -144,14 +144,14 @@
     </div>
 
 
-    <x-spinner.loading-spinner/>
+    <x-spinner.loading-spinner target="search,orderStatus,shopFilter,date_from,date_to,perPage,sortBy,clearFilters,gotoPage,nextPage,previousPage,setPage"/>
 
     <div class="table-responsive">
-        <table wire:loading.remove class="table table-bordered card-table table-vcenter text-nowrap datatable">
+        <table wire:loading.remove wire:target="search,orderStatus,shopFilter,date_from,date_to,perPage,sortBy,clearFilters,gotoPage,nextPage,previousPage,setPage" class="table table-bordered card-table table-vcenter text-nowrap datatable">
             <thead class="thead-light">
                 <tr>
                     <th class="align-middle text-center w-1">
-                        <input type="checkbox" wire:model.live="selectAll">
+                        <input type="checkbox" wire:model.live="selectAll" title="Select all orders on this page">
                     </th>
                     <th class="align-middle text-center w-1">
                         {{ __('No.') }}
@@ -169,21 +169,21 @@
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('invoice_no')" href="#" role="button">
+                        <a wire:click.prevent="sortBy('tracking_number')" href="#" role="button">
                             {{ __('Tracking No.') }}
-                            @include('inclues._sort-icon', ['field' => 'invoice_no'])
+                            @include('inclues._sort-icon', ['field' => 'tracking_number'])
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('customer_id')" href="#" role="button">
+                        <a wire:click.prevent="sortBy('customer_name')" href="#" role="button">
                             {{ __('Customer') }}
-                            @include('inclues._sort-icon', ['field' => 'customer_id'])
+                            @include('inclues._sort-icon', ['field' => 'customer_name'])
                         </a>
                     </th>
                      <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('customer_id')" href="#" role="button">
-                            {{ __('Shope Name') }}
-                            @include('inclues._sort-icon', ['field' => 'customer_id'])
+                        <a wire:click.prevent="sortBy('shop_name_id')" href="#" role="button">
+                            {{ __('Shop Name') }}
+                            @include('inclues._sort-icon', ['field' => 'shop_name_id'])
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
@@ -199,10 +199,7 @@
                         </a>
                     </th>
                     <th scope="col" class="align-middle text-center">
-                        <a wire:click.prevent="sortBy('quantity')" href="#" role="button">
-                            {{ __('No. of Items') }}
-                            @include('inclues._sort-icon', ['field' => 'quantity'])
-                        </a>
+                        {{ __('No. of Items') }}
                     </th>
                     <th scope="col" class="align-middle text-center">
                         <a wire:click.prevent="sortBy('status_id')" href="#" role="button">
@@ -216,14 +213,17 @@
                 </tr>
             </thead>
             <tbody>
+            @php
+                $canPrint = auth()->user()->hasRole('accounting');
+            @endphp
             @forelse ($orders as $order)
                 <tr wire:key="order-{{ $order->id }}"
                     class="{{ $statusColors[$order->status_id] ?? '' }} '">
                     <td class="align-middle text-center" onclick="event.stopPropagation();">
-                        <input type="checkbox" wire:model.live="selected" value="{{ $order->id }}" onclick="event.stopPropagation();">
+                        <input type="checkbox" wire:model="selected" value="{{ $order->id }}" x-on:change="$wire.selectAll = false" onclick="event.stopPropagation();">
                     </td>
                     <td class="align-middle text-center">
-                        {{ $loop->iteration }}
+                        {{ $orders->firstItem() + $loop->index }}
                     </td>
                     <td class="align-middle text-center">
                         {{ $order->order_number }}
@@ -244,7 +244,7 @@
                         {{ $order->shopName->invoice_prefix ?? '' }}
                     </td>
                     <td class="align-middle text-center">
-                        {{ $order->created_at->format('d-m-Y') }}
+                        {{ $order->order_date?->format('d-m-Y') ?? '-' }}
                     </td>
                     <td class="align-middle text-center">
                         {{ Number::currency($order->total, 'PHP') }}
@@ -255,26 +255,26 @@
                     <td class="align-middle text-center">
                         {{ $order->status->name ?? 'N/A' }}
                     </td>
-                    <td class="align-middle text-center" style="width: 5%">
+                    <td class="align-middle text-center">
+                        <div class="d-flex justify-content-center gap-1">
                             <x-button.show class="btn-icon" route="{{ route('orders.show', $order) }}"/>
-                        @php
-                        @endphp
-                        @if(auth()->user()->hasRole('accounting'))
-                            <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" target="_blank"/>
-                        @endif
-                        @if(is_null($order->tracking_number))
-                            <button
-                                class="btn btn-warning btn-icon"
-                                wire:click="$dispatch('openTrackingModal', { orderId: {{ $order->id }} })"
-                                title="Add Tracking Number">
-                                ➕
-                            </button>
-                        @endif
+                            @if($canPrint)
+                                <x-button.print class="btn-icon" route="{{ route('order.downloadInvoice', $order->id) }}?download=1" target="_blank"/>
+                            @endif
+                            @if(is_null($order->tracking_number))
+                                <button
+                                    class="btn btn-warning btn-icon"
+                                    wire:click="$dispatch('openTrackingModal', { orderId: {{ $order->id }} })"
+                                    title="Add Tracking Number">
+                                    ➕
+                                </button>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td class="align-middle text-center" colspan="8">
+                    <td class="align-middle text-center" colspan="12">
                         No results found
                     </td>
                 </tr>
