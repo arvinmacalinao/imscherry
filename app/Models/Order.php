@@ -7,6 +7,8 @@ use App\Models\OrderDetails;
 use App\Models\OrderStatus;
 use App\Models\OrderStatusLog;
 use App\Models\Platform;
+use App\Models\Product;
+use App\Models\ProductRestockLog;
 use App\Models\ScanLog;
 use App\Models\ShopName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -35,6 +37,47 @@ class Order extends Model
         'deleted_at'    => 'datetime',
 
     ];
+
+    /**
+     * No tracking number is always NULL, never '' (importers read empty cells as ''),
+     * so "has no tracking yet" checks and the Add Tracking button work for every platform.
+     */
+    public function setTrackingNumberAttribute($value): void
+    {
+        $value = is_string($value) ? trim($value) : $value;
+
+        $this->attributes['tracking_number'] = ($value === '' || $value === null) ? null : $value;
+    }
+
+    /** Statuses at which the goods are still in the warehouse (not shipped or returned) */
+    public const IN_WAREHOUSE_STATUSES = [1, 2, 5, 7, 8]; // Imported, QC Done, Invoiced, Pending, Picked
+
+    /**
+     * Put stock that was picked for this order back on the shelf (used when an order is
+     * cancelled or set to Pending before it ships). Resets the picked count so a later
+     * pick deducts again, and logs each line for the warehouse report. Call inside a transaction.
+     *
+     * @return int units put back
+     */
+    public function restockPickedItems(): int
+    {
+        $units = 0;
+
+        foreach ($this->details()->where('scanned_qty', '>', 0)->lockForUpdate()->get() as $line) {
+            $product = Product::withTrashed()->whereKey($line->product_id)->lockForUpdate()->first();
+
+            if ($product) {
+                $old = (int) $product->quantity;
+                $product->increment('quantity', $line->scanned_qty);
+                ProductRestockLog::record($product, $old, $old + $line->scanned_qty, 'cancel', $this->id);
+            }
+
+            $units += $line->scanned_qty;
+            $line->update(['scanned_qty' => 0]);
+        }
+
+        return $units;
+    }
 
     public function customer(): BelongsTo
     {

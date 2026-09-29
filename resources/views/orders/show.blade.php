@@ -3,6 +3,8 @@
 @section('content')
     <div class="page-body">
         <div class="container-xl">
+            <x-alert/>
+
             <div class="card">
                 <div class="card-header text-light {{ $statusColors[$order->status_id] ?? '' }}">
                     <div>
@@ -226,6 +228,9 @@
                         </div>
                     </div>
 
+                    @php
+                        $isReturnedOrder = in_array($order->status_id, \App\Reports\ReportStatus::RETURNED_ORDER);
+                    @endphp
                     <div class="table-responsive" style="overflow-x: hidden;">
                         <table class="table table-striped table-bordered align-middle w-100"
                                style="table-layout: fixed;">
@@ -240,16 +245,13 @@
                                 <th class="text-center" style="width: 150px;">Total</th>
                                 <th class="text-center" style="width: 150px;">Remarks</th>
 
-                                @if (in_array($order->status_id, [4, 5]))
+                                @if ($isReturnedOrder)
                                     <th class="text-center" style="width: 160px;">Action</th>
                                 @endif
                             </tr>
                             </thead>
 
                             <tbody>
-                            {{-- @php
-                                dd($order->details);
-                            @endphp --}}
                             @forelse ($order->details as $item)
                                 <tr>
 
@@ -261,7 +263,7 @@
                                     {{-- Product Name (wrap enabled) --}}
                                     <td class="text-start text-wrap"
                                         style="word-break: break-word;">
-                                        {{ $item->product->name ?? '-' }}
+                                        {{ $item->product->name ?? $item->product_name ?? '-' }}
                                     </td>
 
                                     {{-- SKU --}}
@@ -287,7 +289,8 @@
                                         {{ $item->remarks }}
                                     </td>
                                     {{-- 🆕 ACTION COLUMN --}}
-                                    @if (in_array($order->status_id, [4, 10]))
+                                    {{-- each returned item has its own actions, whatever the other items' state --}}
+                                    @if ($isReturnedOrder)
                                         @if(is_null($item->status_id) || $item->status_id == 10)
                                             <td class="text-center">
                                                 <div class="dropdown">
@@ -300,7 +303,7 @@
                                                         {{-- ========================= --}}
                                                         {{-- RETURNED ORDER --}}
                                                         {{-- ========================= --}}
-                                                        @if($order->status_id == 4)
+                                                        @if(is_null($item->status_id))
                                                             <form method="POST"
                                                                   action="{{ route('details.return', $item->id) }}"
                                                                   onsubmit="return submitWithRemarks(this,'Please enter return remarks:')">
@@ -327,7 +330,7 @@
                                                         {{-- ========================= --}}
                                                         {{-- CLAIMS ORDER --}}
                                                         {{-- ========================= --}}
-                                                        @if($order->status_id == 10)
+                                                        @if($item->status_id == 10)
                                                             <form method="POST"
                                                                   action="{{ route('details.refunded', $item->id) }}"
                                                                   onsubmit="return submitWithRemarks(this,'Please enter refund remarks:')">
@@ -364,14 +367,14 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">
+                                    <td colspan="{{ $isReturnedOrder ? 7 : 6 }}" class="text-center text-muted">
                                         No order items found
                                     </td>
                                 </tr>
                             @endforelse
                             </tbody>
                         </table>
-                         @if ($order->status_id == 4)
+                         @if ($isReturnedOrder)
                             <div style="height: 150px;"></div>
                         @endif
                     </div>

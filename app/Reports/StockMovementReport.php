@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Warehouse stock in / out, built from every place the system records a stock change:
  *
- *   product_restock_logs       IN/OUT  product Excel import (restock), manual quantity edits
+ *   product_restock_logs       IN/OUT  product Excel import (restock), manual quantity edits,
+ *                                      picked stock put back when an order is cancelled / set Pending
  *   product_transaction_items  IN/OUT  stock batches (transfer in/out, PO, audit in/out)
  *   product_pulls              OUT     order picking (with order) and the warehouse pull page
  *   order_details_status_logs  IN      items returned to warehouse (status 9)
@@ -21,6 +22,7 @@ class StockMovementReport
     /** Movement type key => label */
     public const TYPES = [
         'import'     => 'Product import',
+        'cancel'     => 'Cancelled order restock',
         'batch'      => 'Stock batch',
         'return'     => 'Returned to warehouse',
         'picking'    => 'Order picking',
@@ -51,18 +53,20 @@ class StockMovementReport
     /** Every recorded stock change as one row: moved_at, product, type, qty in / out, reference */
     private function union(): Builder
     {
-        $restocks = DB::table('product_restock_logs')->select([
-            'created_at AS moved_at',
-            'product_id',
-            DB::raw("CASE WHEN source = 'manual' THEN 'adjustment' ELSE 'import' END AS type_key"),
-            DB::raw("CASE WHEN source = 'manual' THEN 'Manual adjustment' ELSE 'Product import' END AS movement"),
-            DB::raw('GREATEST(added_quantity, 0) AS qty_in'),
-            DB::raw('GREATEST(-added_quantity, 0) AS qty_out'),
-            DB::raw('NULL AS reference'),
-            DB::raw('NULL AS order_id'),
-            'user_id',
-            DB::raw('NULL AS note'),
-        ]);
+        $restocks = DB::table('product_restock_logs AS r')
+            ->leftJoin('orders AS o', 'o.id', '=', 'r.order_id')
+            ->select([
+                'r.created_at AS moved_at',
+                'r.product_id',
+                DB::raw("CASE r.source WHEN 'manual' THEN 'adjustment' WHEN 'cancel' THEN 'cancel' ELSE 'import' END AS type_key"),
+                DB::raw("CASE r.source WHEN 'manual' THEN 'Manual adjustment' WHEN 'cancel' THEN 'Cancelled order restock' ELSE 'Product import' END AS movement"),
+                DB::raw('GREATEST(r.added_quantity, 0) AS qty_in'),
+                DB::raw('GREATEST(-r.added_quantity, 0) AS qty_out'),
+                'o.order_number AS reference',
+                'r.order_id',
+                'r.user_id',
+                DB::raw('NULL AS note'),
+            ]);
 
         $batches = DB::table('product_transaction_items AS i')
             ->join('product_transaction_batches AS b', 'b.id', '=', 'i.batch_id')

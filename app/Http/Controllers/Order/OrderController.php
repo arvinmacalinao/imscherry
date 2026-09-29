@@ -385,18 +385,9 @@ class OrderController extends Controller
             'remarks' => 'required|string|max:255',
         ]);
 
-        $order->update([
-            'status_id' => 6, // Cancelled
-            'remarks'   => $request->remarks,
-        ]);
+        $units = $this->holdOrCancel($order, 6, $request->remarks); // Cancelled
 
-        $order->statusLogs()->create([
-            'status_id' => 6,
-            'acted_by'  => auth()->id(),
-            'remarks'   => $request->remarks,
-        ]);
-
-        return back()->with('success', 'Order has been cancelled.');
+        return back()->with('success', 'Order has been cancelled.' . $this->restockedMessage($units));
     }
 
 
@@ -406,91 +397,65 @@ class OrderController extends Controller
             'remarks' => 'required|string|max:255',
         ]);
 
-        $order->update([
-            'status_id' => 7, // Pending
-            'remarks'   => $request->remarks,
-        ]);
+        $units = $this->holdOrCancel($order, 7, $request->remarks); // Pending
 
-        $order->statusLogs()->create([
-            'status_id' => 7,
-            'acted_by'  => auth()->id(),
-            'remarks'   => $request->remarks,
-        ]);
-
-        return back()->with('success', 'Order is on hold.');
+        return back()->with('success', 'Order is on hold.' . $this->restockedMessage($units));
     }
 
-        public function returnToWarehouse(Request $request, OrderDetails $detail)
+    /**
+     * Cancel (6) or hold (7) an order. Stock already picked for it goes back on the shelf
+     * automatically while the goods are still in the warehouse; a shipped order's goods come
+     * back through the returns flow instead.
+     *
+     * @return int units put back
+     */
+    private function holdOrCancel(Order $order, int $status, string $remarks): int
     {
-        $request->validate([
-            'remarks' => 'required|string|max:255',
-        ]);
+        return DB::transaction(function () use ($order, $status, $remarks) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-        $detail->update([
-            'status_id' => 9,
-            'remarks'   => $request->remarks,
-        ]);
+            $units = in_array($order->status_id, Order::IN_WAREHOUSE_STATUSES) ? $order->restockPickedItems() : 0;
 
-        // Item Log
-        $detail->detailsstatusLogs()->create([
-            'status_id' => 9,
-            'acted_by'  => auth()->id(),
-            'acted_at'  => now(),
-            'remarks'   => $request->remarks,
-        ]);
+            $order->update([
+                'status_id' => $status,
+                'remarks'   => $remarks,
+            ]);
 
-        // Update Parent Order
-        $detail->order->update([
-            'status_id' => 9,
-            'remarks'   => $request->remarks,
-        ]);
+            $order->statusLogs()->create([
+                'status_id' => $status,
+                'acted_by'  => auth()->id(),
+                'remarks'   => $units ? "{$remarks} ({$units} picked unit(s) put back in stock)" : $remarks,
+            ]);
 
-        // Order Log
-        $detail->order->statusLogs()->create([
-            'status_id' => 9,
-            'acted_by'  => auth()->id(),
-            'remarks'   => 'Order returned to warehouse - ' . $request->remarks,
-        ]);
-
-        // Restock inventory
-        $detail->product->increment('quantity', $detail->quantity);
-
-        return back()->with('success', 'Item returned to warehouse.');
+            return $units;
+        });
     }
 
-        public function forClaims(Request $request, OrderDetails $detail)
+    private function restockedMessage(int $units): string
     {
-        $request->validate([
-            'remarks' => 'required|string|max:255',
-        ]);
+        return $units ? " {$units} picked unit(s) were put back in stock." : '';
+    }
 
-        $detail->update([
-            'status_id' => 10,
-            'remarks'   => $request->remarks,
-        ]);
+    /*
+    |--------------------------------------------------------------------------
+    | Returned items
+    |--------------------------------------------------------------------------
+    | Each item of a returned order is handled on its own:
+    |   (not handled) -> Returned to Warehouse (9, restocks)       final
+    |   (not handled) -> For Claims (10) -> Refunded (11)          final
+    |                                    -> Claim Rejected (12)    final
+    | The order's status follows its items (see syncReturnedOrderStatus), so it stays
+    | Returned until every item has been handled.
+    */
 
-        // Item Log
-        $detail->detailsstatusLogs()->create([
-            'status_id' => 10,
-            'acted_by'  => auth()->id(),
-            'acted_at'  => now(),
-            'remarks'   => $request->remarks,
-        ]);
+    public function returnToWarehouse(Request $request, OrderDetails $detail)
+    {
+        return $this->handleReturnedItem($request, $detail, null, 9, 'Item returned to warehouse.', restock: true);
+    }
 
-        // Update Parent Order
-        $detail->order->update([
-            'status_id' => 10,
-            'remarks'   => $request->remarks,
-        ]);
-
-        // Order Log
-        $detail->order->statusLogs()->create([
-            'status_id' => 10,
-            'acted_by'  => auth()->id(),
-            'remarks'   => 'Order marked for claims - ' . $request->remarks,
-        ]);
-
-        return back()->with('success', 'Item marked for claims.');
+    public function forClaims(Request $request, OrderDetails $detail)
+    {
+        return $this->handleReturnedItem($request, $detail, null, 10, 'Item marked for claims.');
     }
 
     public function qcDone(Request $request, Order $order)
@@ -515,64 +480,91 @@ class OrderController extends Controller
 
     public function refunded(Request $request, OrderDetails $detail)
     {
-        $request->validate([
-            'remarks' => 'required|string|max:255',
-        ]);
-
-        $detail->update([
-            'status_id' => 11,
-            'remarks'   => $request->remarks,
-        ]);
-
-        $detail->detailsstatusLogs()->create([
-            'status_id' => 11,
-            'acted_by'  => auth()->id(),
-            'acted_at'  => now(),
-            'remarks'   => $request->remarks,
-        ]);
-
-        $detail->order->update([
-            'status_id' => 11,
-        ]);
-
-        $detail->order->statusLogs()->create([
-            'status_id' => 11,
-            'acted_by'  => auth()->id(),
-            'remarks'   => 'Order refunded - '.$request->remarks,
-        ]);
-
-        return back()->with('success','Order marked as Refunded.');
+        return $this->handleReturnedItem($request, $detail, 10, 11, 'Item marked as refunded.');
     }
 
     public function claimRejected(Request $request, OrderDetails $detail)
+    {
+        return $this->handleReturnedItem($request, $detail, 10, 12, 'Claim rejected.');
+    }
+
+    /**
+     * Move one returned item from $from (null = not handled yet) to $to, once.
+     * The row is locked and its state checked inside the transaction, so a double click,
+     * a browser retry or a direct POST cannot restock twice or skip a step.
+     */
+    private function handleReturnedItem(Request $request, OrderDetails $detail, ?int $from, int $to, string $message, bool $restock = false)
     {
         $request->validate([
             'remarks' => 'required|string|max:255',
         ]);
 
-        $detail->update([
-            'status_id' => 12,
-            'remarks'   => $request->remarks,
-        ]);
+        $error = DB::transaction(function () use ($request, $detail, $from, $to, $restock) {
+            $detail = OrderDetails::whereKey($detail->id)->lockForUpdate()->firstOrFail();
+            $order = Order::whereKey($detail->order_id)->lockForUpdate()->firstOrFail();
 
-        $detail->detailsstatusLogs()->create([
-            'status_id' => 12,
-            'acted_by'  => auth()->id(),
-            'acted_at'  => now(),
-            'remarks'   => $request->remarks,
-        ]);
+            if (! in_array($order->status_id, \App\Reports\ReportStatus::RETURNED_ORDER)) {
+                return 'This order has not been returned.';
+            }
+            if ($detail->status_id != $from) {
+                return $detail->status_id === null
+                    ? 'This item has to be marked For Claims first.'
+                    : 'This item was already handled (' . ($detail->status->name ?? 'status ' . $detail->status_id) . ').';
+            }
 
-        $detail->order->update([
-            'status_id' => 12,
-        ]);
+            $detail->update([
+                'status_id' => $to,
+                'remarks'   => $request->remarks,
+            ]);
 
-        $detail->order->statusLogs()->create([
-            'status_id' => 12,
-            'acted_by'  => auth()->id(),
-            'remarks'   => 'Claim rejected - '.$request->remarks,
-        ]);
+            $detail->detailsstatusLogs()->create([
+                'status_id' => $to,
+                'acted_by'  => auth()->id(),
+                'acted_at'  => now(),
+                'remarks'   => $request->remarks,
+            ]);
 
-        return back()->with('success','Claim rejected.');
+            if ($restock) {
+                Product::whereKey($detail->product_id)->increment('quantity', $detail->quantity);
+            }
+
+            $this->syncReturnedOrderStatus($order, $request->remarks);
+
+            return null;
+        });
+
+        return $error ? back()->with('error', $error) : back()->with('success', $message);
     }
 
+    /**
+     * A returned order's status follows its items:
+     *   any item not handled yet            -> Returned (4)
+     *   else any item still in claims        -> For Claims (10)
+     *   else (every item final): any refund  -> Refunded (11), any rejected claim -> Claim Rejected (12),
+     *                                           otherwise Returned to Warehouse (9)
+     */
+    private function syncReturnedOrderStatus(Order $order, string $remarks): void
+    {
+        $items = $order->details()->pluck('status_id');
+
+        $status = match (true) {
+            $items->contains(fn ($s) => $s === null) => 4,
+            $items->contains(10)                     => 10,
+            $items->contains(11)                     => 11,
+            $items->contains(12)                     => 12,
+            default                                  => 9,
+        };
+
+        if ($order->status_id == $status) {
+            return;
+        }
+
+        $order->update(['status_id' => $status, 'remarks' => $remarks]);
+
+        $order->statusLogs()->create([
+            'status_id' => $status,
+            'acted_by'  => auth()->id(),
+            'remarks'   => 'Returned items updated - ' . $remarks,
+        ]);
+    }
 }
