@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -116,8 +117,8 @@ class OrderImportController extends Controller
                 $products = Product::pluck('id', 'sku');
 
                 Log::info('Preloading existing orders');
-                $existingOrders = Order::where('platform_id', $platformId)
-                    ->pluck('id', 'order_number');
+                // every order number ever used (all platforms, deleted orders too): order_number is unique
+                $existingOrders = $this->existingOrderNumbers();
 
                 // =========================
                 // TRACK RESULTS
@@ -126,6 +127,7 @@ class OrderImportController extends Controller
                 $duplicateOrders = [];
                 $missingSkus     = [];
                 $importedOrders  = 0;
+                $failedOrders    = [];
 
                 // =========================
                 // STEP 2 — PROCESS ORDERS
@@ -184,86 +186,84 @@ class OrderImportController extends Controller
                     // =========================
                     Log::info('Creating new order');
 
-                    $prefix = $shop->invoice_prefix;
+                    // save the order, its items, log and customer together - or not at all
+                    DB::beginTransaction();
+                    try {
+                        $invoiceNo = $this->nextInvoiceNo($shop);
 
-                    $lastInvoice = Order::withTrashed()
-                        ->where('invoice_no', 'like', $prefix . '%')
-                        ->orderBy('id', 'desc')
-                        ->value('invoice_no');
+                        $totalProducts = array_sum(array_column($items, 'quantity'));
 
-                    if ($lastInvoice) {
-                        $lastSeq = intval(substr($lastInvoice, strlen($prefix)));
-                        $nextSeq = str_pad($lastSeq + 1, 6, '0', STR_PAD_LEFT);
-                    } else {
-                        $nextSeq = "000001";
-                    }
+                        $grandTotal = 0;
+                        foreach ($items as $it) {
+                            $grandTotal += $it['unitPrice'] * $it['quantity'];
+                        }
 
-                    $invoiceNo = $prefix . $nextSeq;
+                        $shipFee = $items[0]['estimatedShipFee'] ?? 0;
 
-                    $totalProducts = array_sum(array_column($items, 'quantity'));
-
-                    $grandTotal = 0;
-                    foreach ($items as $it) {
-                        $grandTotal += $it['unitPrice'] * $it['quantity'];
-                    }
-
-                    $shipFee = $items[0]['estimatedShipFee'] ?? 0;
-
-                    $order = Order::create([
-                        'order_number'        => $orderNumber,
-                        'shop_name_id'        => $shopnameId,
-                        'invoice_no'          => $invoiceNo,
-                        'order_date'          => $items[0]['orderDate'],
-                        'total_products'      => $totalProducts,
-                        'shipping_fee'        => $shipFee,
-                        'total'               => $grandTotal,
-                        'platform_id'         => $platformId,
-                        'status_id'           => 1,
-                        'customer_name'       => $items[0]['customerName'],
-                        'shipping_address'    => $items[0]['deliveryAddress'],
-                        'tracking_number'     => $items[0]['trackingNumber'],
-                        'courier'             => $items[0]['shippingOption'],
-                        'platform_created_at' => $items[0]['orderDate'],
-                        'created_by'          => Auth::id(),
-                    ]);
-
-                    Log::info('Order created', ['order_id' => $order->id]);
-
-                    $order->statusLogs()->create([
-                        'status_id' => 1,
-                        'acted_by'  => auth()->id(),
-                        'remarks'   => 'Imported Shopee Order Successfully',
-                    ]);
-
-                    // =========================
-                    // INSERT DETAILS (SAFE)
-                    // =========================
-                    foreach ($items as $item) {
-
-                        $productId = $products[$item['skuReferenceNo']];
-
-                        OrderDetails::create([
-                            'order_id'   => $order->id,
-                            'product_id' => $productId,
-                            'sku'        => $item['skuReferenceNo'],
-                            'product_name' => $item['productName'],
-                            'quantity'   => $item['quantity'],
-                            'unit_price'      => $item['unitPrice'],
+                        $order = Order::create([
+                            'order_number'        => $orderNumber,
+                            'shop_name_id'        => $shopnameId,
+                            'invoice_no'          => $invoiceNo,
+                            'order_date'          => $items[0]['orderDate'],
+                            'total_products'      => $totalProducts,
+                            'shipping_fee'        => $shipFee,
+                            'total'               => $grandTotal,
+                            'platform_id'         => $platformId,
+                            'status_id'           => 1,
+                            'customer_name'       => $items[0]['customerName'],
+                            'shipping_address'    => $items[0]['deliveryAddress'],
+                            'tracking_number'     => $items[0]['trackingNumber'],
+                            'courier'             => $items[0]['shippingOption'],
+                            'platform_created_at' => $items[0]['orderDate'],
+                            'created_by'          => Auth::id(),
                         ]);
-                    }
 
-                    // =========================
-                    // CUSTOMER RECORD
-                    // =========================
-                    Customer::firstOrCreate(
-                        [
-                            'platform_id' => $platformId,
-                            'name'        => $items[0]['customerName'],
-                        ],
-                        [
-                            'created_by' => Auth::id(),
-                        ]
-                    );
+                        Log::info('Order created', ['order_id' => $order->id]);
+
+                        $order->statusLogs()->create([
+                            'status_id' => 1,
+                            'acted_by'  => auth()->id(),
+                            'remarks'   => 'Imported Shopee Order Successfully',
+                        ]);
+
+                        // =========================
+                        // INSERT DETAILS (SAFE)
+                        // =========================
+                        foreach ($items as $item) {
+
+                            $productId = $products[$item['skuReferenceNo']];
+
+                            OrderDetails::create([
+                                'order_id'   => $order->id,
+                                'product_id' => $productId,
+                                'sku'        => $item['skuReferenceNo'],
+                                'product_name' => $item['productName'],
+                                'quantity'   => $item['quantity'],
+                                'unit_price'      => $item['unitPrice'],
+                            ]);
+                        }
+
+                        // =========================
+                        // CUSTOMER RECORD
+                        // =========================
+                        Customer::firstOrCreate(
+                            [
+                                'platform_id' => $platformId,
+                                'name'        => $items[0]['customerName'],
+                            ],
+                            [
+                                'created_by' => Auth::id(),
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (Throwable $e) {
+                        // this order is rolled back completely (no half-saved order); the import carries on
+                        DB::rollBack();
+                        $failedOrders[$orderNumber] = $e->getMessage();
+                        Log::error('Shopee order import failed', ['order' => $orderNumber, 'error' => $e->getMessage()]);
+                        continue;
+                    }
 
                     $importedOrders++;
                 }
@@ -275,13 +275,7 @@ class OrderImportController extends Controller
                     'missing_skus' => array_unique($missingSkus)
                 ]);
 
-                return redirect()
-                    ->route('orders.index')
-                    ->with('success',
-                            "Shopee Import Completed. Imported: {$importedOrders}, Skipped: ".count($skippedOrders).", Duplicates: ".count($duplicateOrders)
-                        . (count($skippedOrders) ? " | Skipped: ".implode(', ', $skippedOrders) : '')
-                        . (count($duplicateOrders) ? " | Duplicates: ".implode(', ', $duplicateOrders) : '')
-                    );
+                return $this->importFinished('Shopee', $importedOrders, $duplicateOrders, $skippedOrders, $missingSkus, $failedOrders);
 
             } catch (Throwable $e) {
 
@@ -373,13 +367,14 @@ class OrderImportController extends Controller
                 // =========================
                 $products = Product::pluck('id', 'sku');
 
-                $existingOrders = Order::where('platform_id', $platformId)
-                    ->pluck('id', 'order_number');
+                // every order number ever used (all platforms, deleted orders too): order_number is unique
+                $existingOrders = $this->existingOrderNumbers();
 
                 $skippedOrders   = [];
                 $duplicateOrders = [];
                 $missingSkus     = [];
                 $importedOrders  = 0;
+                $failedOrders    = [];
 
                 // =========================
                 // STEP 2 — PROCESS ORDERS
@@ -437,81 +432,82 @@ class OrderImportController extends Controller
                     // -------------------------
                     Log::info('Creating new order');
 
-                    $prefix = $shop->invoice_prefix;
+                    // save the order, its items, log and customer together - or not at all
+                    DB::beginTransaction();
+                    try {
+                        $invoiceNo = $this->nextInvoiceNo($shop);
 
-                    $lastInvoice = Order::withTrashed()
-                        ->where('invoice_no', 'like', $prefix.'%')
-                        ->orderBy('id','desc')
-                        ->value('invoice_no');
+                        $totalProducts = array_sum(array_column($items, 'quantity'));
 
-                    $nextSeq = $lastInvoice
-                        ? str_pad(intval(substr($lastInvoice, strlen($prefix))) + 1, 6, '0', STR_PAD_LEFT)
-                        : "000001";
+                        $grandTotal = 0;
+                        foreach ($items as $it) {
+                            $grandTotal += $it['unitPrice'] * $it['quantity'];
+                        }
 
-                    $invoiceNo = $prefix.$nextSeq;
-
-                    $totalProducts = array_sum(array_column($items, 'quantity'));
-
-                    $grandTotal = 0;
-                    foreach ($items as $it) {
-                        $grandTotal += $it['unitPrice'] * $it['quantity'];
-                    }
-
-                    $order = Order::create([
-                        'order_number'        => $orderNumber,
-                        'shop_name_id'        => $shopnameId,
-                        'invoice_no'          => $invoiceNo,
-                        'order_date'          => $items[0]['orderDate'],
-                        'total_products'      => $totalProducts,
-                        'shipping_fee'        => $items[0]['estimatedShipFee'],
-                        'total'               => $grandTotal,
-                        'platform_id'         => $platformId,
-                        'status_id'           => 1,
-                        'customer_name'       => $items[0]['customerName'],
-                        'shipping_address'    => $items[0]['deliveryAddress'],
-                        'tracking_number'     => null,
-                        'courier'             => null,
-                        'platform_created_at' => Carbon::parse($items[0]['orderDate'])->format('Y-m-d H:i:s'),
-                        'created_by'          => Auth::id(),
-                    ]);
-
-                    Log::info('Order created', ['order_id' => $order->id]);
-
-                    $order->statusLogs()->create([
-                        'status_id' => 1,
-                        'acted_by'  => auth()->id(),
-                        'remarks'   => 'Imported Shopify Order Successfully',
-                    ]);
-
-                    // -------------------------
-                    // INSERT DETAILS
-                    // -------------------------
-                    foreach ($items as $item) {
-
-                        $productId = $products[$item['skuReferenceNo']];
-
-                        OrderDetails::create([
-                            'order_id'   => $order->id,
-                            'product_id' => $productId,
-                            'sku'        => $item['skuReferenceNo'],
-                            'product_name' => $item['productName'],
-                            'quantity'   => $item['quantity'],
-                            'unit_price'      => $item['unitPrice'],
+                        $order = Order::create([
+                            'order_number'        => $orderNumber,
+                            'shop_name_id'        => $shopnameId,
+                            'invoice_no'          => $invoiceNo,
+                            'order_date'          => $items[0]['orderDate'],
+                            'total_products'      => $totalProducts,
+                            'shipping_fee'        => $items[0]['estimatedShipFee'],
+                            'total'               => $grandTotal,
+                            'platform_id'         => $platformId,
+                            'status_id'           => 1,
+                            'customer_name'       => $items[0]['customerName'],
+                            'shipping_address'    => $items[0]['deliveryAddress'],
+                            'tracking_number'     => null,
+                            'courier'             => null,
+                            'platform_created_at' => Carbon::parse($items[0]['orderDate'])->format('Y-m-d H:i:s'),
+                            'created_by'          => Auth::id(),
                         ]);
-                    }
 
-                    // -------------------------
-                    // CUSTOMER
-                    // -------------------------
-                    Customer::firstOrCreate(
-                        [
-                            'platform_id' => $platformId,
-                            'name'        => $items[0]['customerName'],
-                        ],
-                        [
-                            'created_by' => Auth::id(),
-                        ]
-                    );
+                        Log::info('Order created', ['order_id' => $order->id]);
+
+                        $order->statusLogs()->create([
+                            'status_id' => 1,
+                            'acted_by'  => auth()->id(),
+                            'remarks'   => 'Imported Shopify Order Successfully',
+                        ]);
+
+                        // -------------------------
+                        // INSERT DETAILS
+                        // -------------------------
+                        foreach ($items as $item) {
+
+                            $productId = $products[$item['skuReferenceNo']];
+
+                            OrderDetails::create([
+                                'order_id'   => $order->id,
+                                'product_id' => $productId,
+                                'sku'        => $item['skuReferenceNo'],
+                                'product_name' => $item['productName'],
+                                'quantity'   => $item['quantity'],
+                                'unit_price'      => $item['unitPrice'],
+                            ]);
+                        }
+
+                        // -------------------------
+                        // CUSTOMER
+                        // -------------------------
+                        Customer::firstOrCreate(
+                            [
+                                'platform_id' => $platformId,
+                                'name'        => $items[0]['customerName'],
+                            ],
+                            [
+                                'created_by' => Auth::id(),
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (Throwable $e) {
+                        // this order is rolled back completely (no half-saved order); the import carries on
+                        DB::rollBack();
+                        $failedOrders[$orderNumber] = $e->getMessage();
+                        Log::error('Shopify order import failed', ['order' => $orderNumber, 'error' => $e->getMessage()]);
+                        continue;
+                    }
 
                     $importedOrders++;
                 }
@@ -523,14 +519,7 @@ class OrderImportController extends Controller
                     'missing_skus' => array_unique($missingSkus)
                 ]);
 
-                return redirect()
-                    ->route('orders.index')
-                    ->with('success',
-                        "Shopify Import Completed. Imported: {$importedOrders}, Skipped: ".count($skippedOrders).", Duplicates: ".count($duplicateOrders)
-                    )
-                    ->with('skipped_orders', $skippedOrders)
-                    ->with('duplicate_orders', $duplicateOrders)
-                    ->with('missing_skus', array_unique($missingSkus));
+                return $this->importFinished('Shopify', $importedOrders, $duplicateOrders, $skippedOrders, $missingSkus, $failedOrders);
 
             } catch (Throwable $e) {
 
@@ -636,8 +625,8 @@ class OrderImportController extends Controller
                 $products = Product::pluck('id', 'sku');
 
                 Log::info('Preloading existing orders');
-                $existingOrders = Order::where('platform_id', $platformId)
-                    ->pluck('id', 'order_number');
+                // every order number ever used (all platforms, deleted orders too): order_number is unique
+                $existingOrders = $this->existingOrderNumbers();
 
                 // =========================
                 // TRACKERS
@@ -646,6 +635,7 @@ class OrderImportController extends Controller
                 $duplicateOrders = [];
                 $missingSkus     = [];
                 $importedOrders  = 0;
+                $failedOrders    = [];
 
                 // =========================
                 // STEP 2 — PROCESS ORDERS
@@ -704,84 +694,85 @@ class OrderImportController extends Controller
                     // -------------------------
                     Log::info('Creating new order');
 
-                    $prefix = $shop->invoice_prefix;
+                    // save the order, its items, log and customer together - or not at all
+                    DB::beginTransaction();
+                    try {
+                        $invoiceNo = $this->nextInvoiceNo($shop);
 
-                    $lastInvoice = Order::withTrashed()
-                        ->where('invoice_no', 'like', $prefix . '%')
-                        ->orderBy('id', 'desc')
-                        ->value('invoice_no');
+                        $totalProducts = array_sum(array_column($items, 'quantity'));
 
-                    $nextSeq = $lastInvoice
-                        ? str_pad(intval(substr($lastInvoice, strlen($prefix))) + 1, 6, '0', STR_PAD_LEFT)
-                        : "000001";
+                        $grandTotal = 0;
+                        foreach ($items as $it) {
+                            $grandTotal += $it['lineTotal'];
+                        }
 
-                    $invoiceNo = $prefix . $nextSeq;
+                        $shipFee = $items[0]['estimatedShipFee'] ?? 0;
 
-                    $totalProducts = array_sum(array_column($items, 'quantity'));
-
-                    $grandTotal = 0;
-                    foreach ($items as $it) {
-                        $grandTotal += $it['lineTotal'];
-                    }
-
-                    $shipFee = $items[0]['estimatedShipFee'] ?? 0;
-
-                    $order = Order::create([
-                        'order_number'        => $orderNumber,
-                        'shop_name_id'        => $shopnameId,
-                        'invoice_no'          => $invoiceNo,
-                        'order_date'          => $items[0]['orderDate'],
-                        'total_products'      => $totalProducts,
-                        'shipping_fee'        => $shipFee,
-                        'total'               => $grandTotal,
-                        'platform_id'         => $platformId,
-                        'status_id'           => 1,
-                        'customer_name'       => $items[0]['customerName'],
-                        'shipping_address'    => $items[0]['deliveryAddress'],
-                        'tracking_number'     => $items[0]['trackingNumber'],
-                        'courier'             => $items[0]['shippingOption'],
-                        'platform_created_at' => Carbon::parse($items[0]['orderDate']),
-                        'created_by'          => Auth::id(),
-                        'payment_type'        => $items[0]['paymenttype'],
-                    ]);
-
-                    Log::info('Order created', ['order_id' => $order->id]);
-
-                    $order->statusLogs()->create([
-                        'status_id' => 1,
-                        'acted_by'  => auth()->id(),
-                        'remarks'   => 'Imported TikTok Order Successfully',
-                    ]);
-
-                    // -------------------------
-                    // INSERT DETAILS
-                    // -------------------------
-                    foreach ($items as $item) {
-
-                        $productId = $products[$item['skuReferenceNo']];
-
-                        OrderDetails::create([
-                            'order_id'   => $order->id,
-                            'product_id' => $productId,
-                            'sku'        => $item['skuReferenceNo'],
-                            'product_name' => $item['productName'],
-                            'quantity'   => $item['quantity'],
-                            'unit_price'      => $item['unitPrice'],
+                        $order = Order::create([
+                            'order_number'        => $orderNumber,
+                            'shop_name_id'        => $shopnameId,
+                            'invoice_no'          => $invoiceNo,
+                            'order_date'          => $items[0]['orderDate'],
+                            'total_products'      => $totalProducts,
+                            'shipping_fee'        => $shipFee,
+                            'total'               => $grandTotal,
+                            'platform_id'         => $platformId,
+                            'status_id'           => 1,
+                            'customer_name'       => $items[0]['customerName'],
+                            'shipping_address'    => $items[0]['deliveryAddress'],
+                            'tracking_number'     => $items[0]['trackingNumber'],
+                            'courier'             => $items[0]['shippingOption'],
+                            'platform_created_at' => Carbon::parse($items[0]['orderDate']),
+                            'created_by'          => Auth::id(),
+                            'payment_type'        => $items[0]['paymenttype'],
                         ]);
-                    }
 
-                    // -------------------------
-                    // CUSTOMER
-                    // -------------------------
-                    Customer::firstOrCreate(
-                        [
-                            'platform_id' => $platformId,
-                            'name'        => $items[0]['customerName'],
-                        ],
-                        [
-                            'created_by' => Auth::id(),
-                        ]
-                    );
+                        Log::info('Order created', ['order_id' => $order->id]);
+
+                        $order->statusLogs()->create([
+                            'status_id' => 1,
+                            'acted_by'  => auth()->id(),
+                            'remarks'   => 'Imported TikTok Order Successfully',
+                        ]);
+
+                        // -------------------------
+                        // INSERT DETAILS
+                        // -------------------------
+                        foreach ($items as $item) {
+
+                            $productId = $products[$item['skuReferenceNo']];
+
+                            OrderDetails::create([
+                                'order_id'   => $order->id,
+                                'product_id' => $productId,
+                                'sku'        => $item['skuReferenceNo'],
+                                'product_name' => $item['productName'],
+                                'quantity'   => $item['quantity'],
+                                'unit_price'      => $item['unitPrice'],
+                            ]);
+                        }
+
+                        // -------------------------
+                        // CUSTOMER
+                        // -------------------------
+                        Customer::firstOrCreate(
+                            [
+                                'platform_id' => $platformId,
+                                'name'        => $items[0]['customerName'],
+                            ],
+                            [
+                                'created_by' => Auth::id(),
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (Throwable $e) {
+                        // this order is rolled back completely (no half-saved order); the import carries on
+                        DB::rollBack();
+                        $failedOrders[$orderNumber] = $e->getMessage();
+                        Log::error('TikTok order import failed', ['order' => $orderNumber, 'error' => $e->getMessage()]);
+                        continue;
+                    }
 
                     $importedOrders++;
                 }
@@ -793,13 +784,7 @@ class OrderImportController extends Controller
                     'missing_skus' => array_unique($missingSkus)
                 ]);
 
-                return redirect()
-                    ->route('orders.index')
-                    ->with('success',
-                        "TikTok Import Completed. Imported: {$importedOrders}, Skipped: ".count($skippedOrders).", Duplicates: ".count($duplicateOrders)
-                        . (count($skippedOrders) ? " | Skipped: ".implode(', ', $skippedOrders) : '')
-                        . (count($duplicateOrders) ? " | Duplicates: ".implode(', ', $duplicateOrders) : '')
-                    );
+                return $this->importFinished('TikTok', $importedOrders, $duplicateOrders, $skippedOrders, $missingSkus, $failedOrders);
 
                     } catch (Throwable $e) {
 
@@ -902,13 +887,14 @@ class OrderImportController extends Controller
 
                 $products = Product::pluck('id', 'sku');
 
-                $existingOrders = Order::where('platform_id', $platformId)
-                    ->pluck('id', 'order_number');
+                // every order number ever used (all platforms, deleted orders too): order_number is unique
+                $existingOrders = $this->existingOrderNumbers();
 
                 $skippedOrders   = [];
                 $duplicateOrders = [];
                 $missingSkus     = [];
                 $importedOrders  = 0;
+                $failedOrders    = [];
 
                 // =========================
                 // STEP 2 — PROCESS
@@ -983,104 +969,106 @@ class OrderImportController extends Controller
                         // -------------------------
                         // INVOICE
                         // -------------------------
-                        $prefix = $shop->invoice_prefix;
+                        // save the order, its items, log and customer together - or not at all
+                        DB::beginTransaction();
+                        try {
+                            $invoiceNo = $this->nextInvoiceNo($shop);
 
-                        $lastInvoice = Order::withTrashed()
-                            ->where('invoice_no', 'like', $prefix.'%')
-                            ->orderBy('id','desc')
-                            ->value('invoice_no');
+                            // -------------------------
+                            // TOTALS (IMPORTANT FIX)
+                            // -------------------------
+                            $totalProducts = collect($shipmentItems)->sum('quantity'); // ✅ row = qty
+                            $grandTotal    = collect($shipmentItems)->sum('unitPrice');
+                            $shipFee       = collect($shipmentItems)->sum('shipFee');
 
-                        $nextSeq = $lastInvoice
-                            ? str_pad(intval(substr($lastInvoice, strlen($prefix))) + 1, 6, '0', STR_PAD_LEFT)
-                            : "000001";
-
-                        $invoiceNo = $prefix.$nextSeq;
-
-                        // -------------------------
-                        // TOTALS (IMPORTANT FIX)
-                        // -------------------------
-                        $totalProducts = collect($shipmentItems)->sum('quantity'); // ✅ row = qty
-                        $grandTotal    = collect($shipmentItems)->sum('unitPrice');
-                        $shipFee       = collect($shipmentItems)->sum('shipFee');
-
-                        // -------------------------
-                        // CREATE ORDER
-                        // -------------------------
-                        $order = Order::create([
-                            'order_number'        => $finalOrderNumber,
-                            'shop_name_id'        => $shopnameId,
-                            'invoice_no'          => $invoiceNo,
-                            'order_date'          => $shipmentItems[0]['orderDate'],
-                            'total_products'      => $totalProducts,
-                            'shipping_fee'        => $shipFee,
-                            'total'               => $grandTotal,
-                            'platform_id'         => $platformId,
-                            'status_id'           => 1,
-                            'customer_name'       => $shipmentItems[0]['customerName'],
-                            'shipping_address'    => $shipmentItems[0]['deliveryAddress'],
-                            'tracking_number'     => $trackingNumber,
-                            'courier'             => $shipmentItems[0]['shippingOption'],
-                            'platform_created_at' => Carbon::parse($shipmentItems[0]['orderDate']),
-                            'created_by'          => Auth::id(),
-                            'payment_type'        => $shipmentItems[0]['paymentType'],
-                        ]);
-
-                        Log::info('Order created', ['order_id' => $order->id]);
-
-                        $order->statusLogs()->create([
-                            'status_id' => 1,
-                            'acted_by'  => auth()->id(),
-                            'remarks'   => 'Imported Lazada Order',
-                        ]);
-
-                        // -------------------------
-                        // GROUP BY SKU (ROW COUNT = QTY)
-                        // -------------------------
-                        $groupedItems = collect($shipmentItems)->groupBy('skuReferenceNo');
-
-                        foreach ($groupedItems as $sku => $group) {
-
-                            $productId = $products[$sku];
-
-                            $quantity = $group->count(); // ✅ correct for Lazada
-                            $total    = $group->sum('lineTotal');
-
-                            OrderDetails::create([
-                                'order_id'   => $order->id,
-                                'product_id' => $productId,
-                                'sku'        => $sku,
-                                'product_name' => $group->first()['productName'],
-                                'quantity'   => $quantity,
-                                'unit_price'      => $quantity > 0 ? $total / $quantity : 0,
+                            // -------------------------
+                            // CREATE ORDER
+                            // -------------------------
+                            $order = Order::create([
+                                'order_number'        => $finalOrderNumber,
+                                'shop_name_id'        => $shopnameId,
+                                'invoice_no'          => $invoiceNo,
+                                'order_date'          => $shipmentItems[0]['orderDate'],
+                                'total_products'      => $totalProducts,
+                                'shipping_fee'        => $shipFee,
+                                'total'               => $grandTotal,
+                                'platform_id'         => $platformId,
+                                'status_id'           => 1,
+                                'customer_name'       => $shipmentItems[0]['customerName'],
+                                'shipping_address'    => $shipmentItems[0]['deliveryAddress'],
+                                'tracking_number'     => $trackingNumber,
+                                'courier'             => $shipmentItems[0]['shippingOption'],
+                                'platform_created_at' => Carbon::parse($shipmentItems[0]['orderDate']),
+                                'created_by'          => Auth::id(),
+                                'payment_type'        => $shipmentItems[0]['paymentType'],
                             ]);
+
+                            Log::info('Order created', ['order_id' => $order->id]);
+
+                            $order->statusLogs()->create([
+                                'status_id' => 1,
+                                'acted_by'  => auth()->id(),
+                                'remarks'   => 'Imported Lazada Order',
+                            ]);
+
+                            // -------------------------
+                            // GROUP BY SKU (ROW COUNT = QTY)
+                            // -------------------------
+                            $groupedItems = collect($shipmentItems)->groupBy('skuReferenceNo');
+
+                            foreach ($groupedItems as $sku => $group) {
+
+                                $productId = $products[$sku];
+
+                                $quantity = $group->count(); // ✅ correct for Lazada
+                                $total    = $group->sum('lineTotal');
+
+                                OrderDetails::create([
+                                    'order_id'   => $order->id,
+                                    'product_id' => $productId,
+                                    'sku'        => $sku,
+                                    'product_name' => $group->first()['productName'],
+                                    'quantity'   => $quantity,
+                                    'unit_price'      => $quantity > 0 ? $total / $quantity : 0,
+                                ]);
+                            }
+
+                            // $quantity = $group->count(); // ✅ correct for Lazada
+                            //     // representative unit price (do NOT average)
+                            //     $unitPrice = $group->first()['unitPrice'];
+
+                            //     // real total from platform
+                            //     $total = $group->sum('lineTotal');
+
+                            //     OrderDetails::create([
+                            //         'order_id'   => $order->id,
+                            //         'product_id' => $productId,
+                            //         'sku'        => $sku,
+                            //         'product_name' => $group->first()['productName'],
+                            //         'quantity'   => $quantity,
+                            //         'price'      => $unitPrice, // unit price
+                            //         'total'      => $total,     // ✅ actual platform total
+                            //     ]);
+
+                            Customer::firstOrCreate(
+                                [
+                                    'platform_id' => $platformId,
+                                    'name'        => $shipmentItems[0]['customerName'],
+                                ],
+                                [
+                                    'created_by' => Auth::id(),
+                                ]
+                            );
+
+                            DB::commit();
+                        } catch (Throwable $e) {
+                            // this order is rolled back completely (no half-saved order); the import carries on
+                            DB::rollBack();
+                            $failedOrders[$finalOrderNumber] = $e->getMessage();
+                            Log::error('Lazada order import failed', ['order' => $finalOrderNumber, 'error' => $e->getMessage()]);
+                            $index++;
+                            continue;
                         }
-
-                        // $quantity = $group->count(); // ✅ correct for Lazada
-                        //     // representative unit price (do NOT average)
-                        //     $unitPrice = $group->first()['unitPrice'];
-
-                        //     // real total from platform
-                        //     $total = $group->sum('lineTotal');
-
-                        //     OrderDetails::create([
-                        //         'order_id'   => $order->id,
-                        //         'product_id' => $productId,
-                        //         'sku'        => $sku,
-                        //         'product_name' => $group->first()['productName'],
-                        //         'quantity'   => $quantity,
-                        //         'price'      => $unitPrice, // unit price
-                        //         'total'      => $total,     // ✅ actual platform total
-                        //     ]);
-
-                        Customer::firstOrCreate(
-                            [
-                                'platform_id' => $platformId,
-                                'name'        => $shipmentItems[0]['customerName'],
-                            ],
-                            [
-                                'created_by' => Auth::id(),
-                            ]
-                        );
 
                         $importedOrders++;
                         $index++;
@@ -1094,13 +1082,7 @@ class OrderImportController extends Controller
                     'missing_skus' => array_unique($missingSkus)
                 ]);
 
-                return redirect()
-                    ->route('orders.index')
-                    ->with('success',
-                        "Lazada Import Completed. Imported: {$importedOrders}, Skipped: ".count($skippedOrders).", Duplicates: ".count($duplicateOrders)
-                        . (count($skippedOrders) ? " | Skipped: ".implode(', ', $skippedOrders) : '')
-                        . (count($duplicateOrders) ? " | Duplicates: ".implode(', ', $duplicateOrders) : '')
-                    );
+                return $this->importFinished('Lazada', $importedOrders, $duplicateOrders, $skippedOrders, $missingSkus, $failedOrders);
 
             } catch (Throwable $e) {
 
@@ -1187,13 +1169,14 @@ class OrderImportController extends Controller
                 // =========================
                 $products = Product::pluck('id', 'sku');
 
-                $existingOrders = Order::where('platform_id', $platformId)
-                    ->pluck('id', 'order_number');
+                // every order number ever used (all platforms, deleted orders too): order_number is unique
+                $existingOrders = $this->existingOrderNumbers();
 
                 $skippedOrders   = [];
                 $duplicateOrders = [];
                 $missingSkus     = [];
                 $importedOrders  = 0;
+                $failedOrders    = [];
 
                 // =========================
                 // PROCESS ORDERS
@@ -1245,75 +1228,76 @@ class OrderImportController extends Controller
                     // CREATE ORDER
                     Log::info('Creating new order');
 
-                    $prefix = $shop->invoice_prefix;
+                    // save the order, its items, log and customer together - or not at all
+                    DB::beginTransaction();
+                    try {
+                        $invoiceNo = $this->nextInvoiceNo($shop);
 
-                    $lastInvoice = Order::withTrashed()
-                        ->where('invoice_no', 'like', $prefix.'%')
-                        ->orderBy('id','desc')
-                        ->value('invoice_no');
+                        $totalProducts = array_sum(array_column($items, 'quantity'));
+                        $grandTotal    = array_sum(array_column($items, 'grandTotal'));
+                        $shipFee       = $items[0]['estimatedShipFee'] ?? 0;
 
-                    $nextSeq = $lastInvoice
-                        ? str_pad(intval(substr($lastInvoice, strlen($prefix))) + 1, 6, '0', STR_PAD_LEFT)
-                        : "000001";
-
-                    $invoiceNo = $prefix.$nextSeq;
-
-                    $totalProducts = array_sum(array_column($items, 'quantity'));
-                    $grandTotal    = array_sum(array_column($items, 'grandTotal'));
-                    $shipFee       = $items[0]['estimatedShipFee'] ?? 0;
-
-                    $order = Order::create([
-                        'order_number'        => $orderNumber,
-                        'shop_name_id'        => $shopnameId,
-                        'invoice_no'          => $invoiceNo,
-                        'order_date'          => $items[0]['orderDate'],
-                        'total_products'      => $totalProducts,
-                        'shipping_fee'        => $shipFee,
-                        'total'               => $grandTotal,
-                        'platform_id'         => $platformId,
-                        'status_id'           => 1,
-                        'customer_name'       => $items[0]['customerName'],
-                        'shipping_address'    => $items[0]['deliveryAddress'],
-                        'tracking_number'     => $items[0]['trackingNumber'],
-                        'platform_created_at' => Carbon::parse($items[0]['orderDate']),
-                        'created_by'          => Auth::id(),
-                        'payment_type'        => $items[0]['paymenttype'],
-                    ]);
-
-                    Log::info('Order created', ['order_id' => $order->id]);
-
-                    $order->statusLogs()->create([
-                        'status_id' => 1,
-                        'acted_by'  => auth()->id(),
-                        'remarks'   => 'Imported Edamama Order Successfully',
-                    ]);
-
-                    // INSERT DETAILS
-                    foreach ($items as $item) {
-
-                        $productId = $products[$item['skuReferenceNo']];
-
-                        OrderDetails::create([
-                            'order_id'   => $order->id,
-                            'product_id' => $productId,
-                            'sku'        => $item['skuReferenceNo'],
-                            'product_name' => $item['productName'],
-                            'quantity'   => $item['quantity'],
-                            'unit_price'      => $item['prodsubtotal'] > 0
-                                ? $item['prodsubtotal'] / max($item['quantity'],1)
-                                : 0,
+                        $order = Order::create([
+                            'order_number'        => $orderNumber,
+                            'shop_name_id'        => $shopnameId,
+                            'invoice_no'          => $invoiceNo,
+                            'order_date'          => $items[0]['orderDate'],
+                            'total_products'      => $totalProducts,
+                            'shipping_fee'        => $shipFee,
+                            'total'               => $grandTotal,
+                            'platform_id'         => $platformId,
+                            'status_id'           => 1,
+                            'customer_name'       => $items[0]['customerName'],
+                            'shipping_address'    => $items[0]['deliveryAddress'],
+                            'tracking_number'     => $items[0]['trackingNumber'],
+                            'platform_created_at' => Carbon::parse($items[0]['orderDate']),
+                            'created_by'          => Auth::id(),
+                            'payment_type'        => $items[0]['paymenttype'],
                         ]);
-                    }
 
-                    Customer::firstOrCreate(
-                        [
-                            'platform_id' => $platformId,
-                            'name'        => $items[0]['customerName'],
-                        ],
-                        [
-                            'created_by' => Auth::id(),
-                        ]
-                    );
+                        Log::info('Order created', ['order_id' => $order->id]);
+
+                        $order->statusLogs()->create([
+                            'status_id' => 1,
+                            'acted_by'  => auth()->id(),
+                            'remarks'   => 'Imported Edamama Order Successfully',
+                        ]);
+
+                        // INSERT DETAILS
+                        foreach ($items as $item) {
+
+                            $productId = $products[$item['skuReferenceNo']];
+
+                            OrderDetails::create([
+                                'order_id'   => $order->id,
+                                'product_id' => $productId,
+                                'sku'        => $item['skuReferenceNo'],
+                                'product_name' => $item['productName'],
+                                'quantity'   => $item['quantity'],
+                                'unit_price'      => $item['prodsubtotal'] > 0
+                                    ? $item['prodsubtotal'] / max($item['quantity'],1)
+                                    : 0,
+                            ]);
+                        }
+
+                        Customer::firstOrCreate(
+                            [
+                                'platform_id' => $platformId,
+                                'name'        => $items[0]['customerName'],
+                            ],
+                            [
+                                'created_by' => Auth::id(),
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (Throwable $e) {
+                        // this order is rolled back completely (no half-saved order); the import carries on
+                        DB::rollBack();
+                        $failedOrders[$orderNumber] = $e->getMessage();
+                        Log::error('Edamama order import failed', ['order' => $orderNumber, 'error' => $e->getMessage()]);
+                        continue;
+                    }
 
                     $importedOrders++;
                 }
@@ -1325,13 +1309,7 @@ class OrderImportController extends Controller
                     'missing_skus' => array_unique($missingSkus)
                 ]);
 
-                return redirect()
-                    ->route('orders.index')
-                    ->with('success',
-                        "Edamama Import Completed. Imported: {$importedOrders}, Skipped: ".count($skippedOrders).", Duplicates: ".count($duplicateOrders)
-                        . (count($skippedOrders) ? " | Skipped: ".implode(', ', $skippedOrders) : '')
-                        . (count($duplicateOrders) ? " | Duplicates: ".implode(', ', $duplicateOrders) : '')
-                    );
+                return $this->importFinished('Edamama', $importedOrders, $duplicateOrders, $skippedOrders, $missingSkus, $failedOrders);
 
             } catch (Throwable $e) {
 
@@ -1345,10 +1323,66 @@ class OrderImportController extends Controller
         }
 
 
-       return redirect()
-            ->route('orders.index')
-            ->with('success', 'Orders imported successfully!');
+        // no importer for this shop's platform (e.g. Zalora): say so instead of reporting success
+        return back()->with('error', 'Importing orders for ' . ($shop->platform->name ?? 'this platform') . ' (' . $shop->name . ') is not supported yet. Nothing was imported.');
     // }
 
+    }
+
+    /**
+     * Every order number already used, on any platform, including deleted orders:
+     * orders.order_number is unique across the whole table.
+     */
+    private function existingOrderNumbers()
+    {
+        return Order::withTrashed()->pluck('id', 'order_number');
+    }
+
+    /**
+     * Next invoice number for the shop: prefix + 6 digits, one above the highest used so far.
+     * Call inside the order's transaction: the shop row stays locked until commit, so two
+     * imports for the same shop cannot take the same number.
+     */
+    private function nextInvoiceNo(ShopName $shop): string
+    {
+        ShopName::whereKey($shop->id)->lockForUpdate()->first();
+
+        $prefix = $shop->invoice_prefix;
+
+        $lastSeq = (int) Order::withTrashed()
+            ->where('invoice_no', 'regexp', '^' . preg_quote($prefix) . '[0-9]+$')
+            ->max(DB::raw('CAST(SUBSTRING(invoice_no, ' . (strlen($prefix) + 1) . ') AS UNSIGNED)'));
+
+        return $prefix . str_pad($lastSeq + 1, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Back to the orders list with a summary of the import: how many were imported, and which
+     * orders were skipped (already imported / unknown SKU) or failed, so staff can fix them.
+     */
+    private function importFinished(string $platform, int $imported, array $duplicates, array $skipped, array $missingSkus, array $failed)
+    {
+        $result = [
+            'platform'     => $platform,
+            'imported'     => $imported,
+            'duplicates'   => array_values(array_unique($duplicates)),
+            // skipped for a reason other than being a duplicate = an SKU not in Products
+            'missing_orders' => array_values(array_diff(array_unique($skipped), $duplicates)),
+            'missing_skus' => array_values(array_unique(array_filter($missingSkus, fn ($sku) => $sku !== null && $sku !== ''))),
+            'failed'       => $failed,
+        ];
+
+        Log::info("{$platform} import finished", $result);
+
+        $message = "{$platform} import: {$imported} order(s) imported"
+            . (count($result['duplicates']) ? ', ' . count($result['duplicates']) . ' already imported' : '')
+            . (count($result['missing_orders']) ? ', ' . count($result['missing_orders']) . ' skipped (unknown SKU)' : '')
+            . (count($failed) ? ', ' . count($failed) . ' failed' : '')
+            . '.';
+
+        return redirect()
+            ->route('orders.index')
+            ->with($imported === 0 && ($failed || $result['missing_orders']) ? 'error' : 'success', $message)
+            ->with('import_result', $result);
     }
 }

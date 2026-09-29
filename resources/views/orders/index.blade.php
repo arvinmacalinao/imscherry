@@ -3,6 +3,10 @@
 @section('content')
 <div class="page-body">
     @if($orders->isEmpty())
+    <div class="container-fluid">
+        <x-alert/>
+        @include('orders.partials.import-result')
+    </div>
     <x-empty
         title="No orders found"
         message="Try adjusting your search or filter to find what you're looking for."
@@ -14,6 +18,7 @@
     @else
     <div class="container-fluid">
         <x-alert/>
+        @include('orders.partials.import-result')
 
         <livewire:tables.order-table />
     </div>
