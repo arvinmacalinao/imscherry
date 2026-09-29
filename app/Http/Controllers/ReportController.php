@@ -2,209 +2,99 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-use App\Models\Order;
-use App\Models\Product;
-use App\Models\Customer;
-use App\Models\ShopName;
-use App\Models\ProductPull;
-use App\Models\OrderDetails;
+use App\Exports\CancellationExport;
+use App\Exports\CategoryReportExport;
+use App\Exports\CustomerExport;
+use App\Exports\ReturnExport;
+use App\Exports\SalesExport;
+use App\Exports\WarehouseExport;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
+/**
+ * Report pages and their Excel exports.
+ *
+ * Each page is a Livewire table (App\Livewire\Tables\Report\*) and each export is built by the
+ * same report class (App\Reports\*) from the same filters, which the page puts in the export URL.
+ */
 class ReportController extends Controller
 {
-    public function warehouse(Request $request)
-    {
-        $products = Product::with('category')->get();
+    /** Filters every report understands; each report ignores the ones it does not use */
+    private const FILTERS = [
+        'search', 'date_from', 'date_to', 'shop_id', 'platform_id', 'category_id', 'brand',
+        'picked', 'outcome', 'type', 'direction',
+    ];
 
-        return view('reports.warehouse', compact('products'));
+    private function filters(Request $request): array
+    {
+        return array_filter($request->only(self::FILTERS), fn ($v) => $v !== null && $v !== '');
     }
 
-    public function sales(Request $request)
+    private function download($export, string $name)
     {
-        $items = OrderDetails::with([
-                'order.shopName',
-                'product'
-            ])
-            ->whereHas('order', function ($query) use ($request) {
-                $query->where('status_id', 3);
-
-                // Date filter
-                if ($request->filled('date_from')) {
-                    $query->whereDate('order_date', '>=', $request->date_from);
-                }
-
-                if ($request->filled('date_to')) {
-                    $query->whereDate('order_date', '<=', $request->date_to);
-                }
-
-                // Shop filter
-                if ($request->filled('shop_id')) {
-                    $query->where('shop_name_id', $request->shop_id);
-                }
-
-            })
-
-            // Product filter (belongs to order_details)
-            ->when($request->filled('product_id'), function ($query) use ($request) {
-                $query->where('product_id', $request->product_id);
-            })
-
-            ->latest()
-            ->get();
-
-        return view('reports.sales', [
-            'items' => $items,
-            'shops' => ShopName::all(),
-            'products' => Product::orderBy('name')->get(),
-        ]);
+        return Excel::download($export, $name . '_' . now()->format('Ymd_His') . '.xlsx');
     }
 
-    public function return(Request $request)
+    public function warehouse()
     {
-        $items = Order::with([
-                'shopName',
-                'details.product',
-                'statusLogs' => function ($q) {
-                    $q->where('status_id', 4)->latest();
-                }
-            ])
-            ->where('status_id', 4) // Cancelled orders only
-
-            // -------------------------
-            // DATE FILTER (ORDER DATE)
-            // -------------------------
-            ->when($request->filled('date_from'), function ($q) use ($request) {
-                $q->whereDate('order_date', '>=', $request->date_from);
-            })
-
-            ->when($request->filled('date_to'), function ($q) use ($request) {
-                $q->whereDate('order_date', '<=', $request->date_to);
-            })
-
-            // -------------------------
-            // SHOP FILTER
-            // -------------------------
-            ->when($request->filled('shop_id'), function ($q) use ($request) {
-                $q->where('shop_name_id', $request->shop_id);
-            })
-
-            ->latest('order_date')
-            ->get();
-
-        return view('reports.return', [
-            'items' => $items,
-            'shops' => ShopName::all(),
-        ]);
+        return view('reports.warehouse');
     }
 
-    public function cancel(Request $request)
+    public function sales()
     {
-        $items = Order::with([
-                'shopName',
-                'statusLogs' => function ($q) {
-                    $q->where('status_id', 4)->latest();
-                }
-            ])
-            ->where('status_id', 6) // Cancelled orders only
-
-            // -------------------------
-            // DATE FILTER (ORDER DATE)
-            // -------------------------
-            ->when($request->filled('date_from'), function ($q) use ($request) {
-                $q->whereDate('order_date', '>=', $request->date_from);
-            })
-
-            ->when($request->filled('date_to'), function ($q) use ($request) {
-                $q->whereDate('order_date', '<=', $request->date_to);
-            })
-
-            // -------------------------
-            // SHOP FILTER
-            // -------------------------
-            ->when($request->filled('shop_id'), function ($q) use ($request) {
-                $q->where('shop_name_id', $request->shop_id);
-            })
-
-            ->latest('order_date')
-            ->get();
-
-        return view('reports.cancel', [
-            'items' => $items,
-            'shops' => ShopName::all(),
-        ]);
+        return view('reports.sales');
     }
 
-    public function customer(Request $request)
-    { 
-        $customers = Customer::all();
-        $orders = Order::with('shopName')->whereNotNull('customer_name')->get();
+    public function return()
+    {
+        return view('reports.return');
+    }
 
-            // Attach orders to each customer
-            foreach ($customers as $customer) {
-                $customer->orders = $orders->where('customer_name', $customer->name);
-            }
-        return view('reports.customer', compact('customers'));
+    public function cancel()
+    {
+        return view('reports.cancel');
+    }
+
+    public function customer()
+    {
+        return view('reports.customer');
+    }
+
+    public function categories()
+    {
+        return view('reports.categories');
     }
 
     public function export_warehouse(Request $request)
     {
-        $products = Product::with('category')->get();
-    
-        return Excel::download(new \App\Exports\WarehouseExport($products), 'warehouse_report.xlsx');
+        return $this->download(new WarehouseExport($this->filters($request)), 'warehouse_report');
     }
 
     public function export_sales(Request $request)
     {
-        $orders = Order::with('shopName')
-            ->where('status_id', 3)   // same filter as your page
-            ->get();
-
-        return Excel::download(new \App\Exports\SalesExport($orders), 'sales_report.xlsx');
+        return $this->download(
+            new SalesExport($this->filters($request), $request->input('group_by', 'brand')),
+            'sales_report'
+        );
     }
 
     public function export_customer(Request $request)
     {
-        $customers = Customer::all();
-        $orders = Order::whereNotNull('customer_name')->get();
-    
-        foreach ($customers as $customer) {
-            $customer->orders = $orders->where('customer_name', $customer->name);
-        }
-    
-        return Excel::download(
-            new \App\Exports\CustomerExport($customers),
-            'customer_report.xlsx'
-        );
+        return $this->download(new CustomerExport($this->filters($request)), 'customer_report');
     }
 
-    // public function categories(Request $request)
-    // {
-    //     $orders = Order::with('shopName')->latest()->get();
-    //     return view('reports.categories', [
-    //         'orders' => $orders,
-    //     ]);
-    // }
-    public function categories()
+    public function export_cancel(Request $request)
     {
-        $categories = DB::table('categories')
-            ->leftJoin('products', 'products.category_id', '=', 'categories.id')
-            ->leftJoin('order_details', 'order_details.product_id', '=', 'products.id')
-            ->leftJoin('orders', 'orders.id', '=', 'order_details.order_id')
-            ->select(
-                'categories.id',
-                'categories.name',
-    
-                DB::raw("SUM(CASE WHEN orders.status_id = 3 THEN order_details.quantity ELSE 0 END) as sales"),
-                DB::raw("SUM(CASE WHEN orders.status_id = 4 THEN order_details.quantity ELSE 0 END) as returns"),
-                DB::raw("SUM(CASE WHEN orders.status_id = 6 THEN order_details.quantity ELSE 0 END) as cancelled")
-            )
-            ->groupBy('categories.id', 'categories.name')
-            ->orderBy('categories.name')
-            ->get();
-    
-        return view('reports.categories', compact('categories'));
+        return $this->download(new CancellationExport($this->filters($request)), 'cancellation_report');
+    }
+
+    public function export_return(Request $request)
+    {
+        return $this->download(new ReturnExport($this->filters($request)), 'returned_report');
+    }
+
+    public function export_categories(Request $request)
+    {
+        return $this->download(new CategoryReportExport($this->filters($request)), 'category_report');
     }
 }

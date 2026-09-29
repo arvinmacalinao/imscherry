@@ -15,8 +15,12 @@ class Category extends Model
         'id',
     ];
 
+    /** Brands the reports group by; categories without one show as "Other" */
+    public const BRANDS = ['CHERRY', 'LUXELLE'];
+
     protected $fillable = [
         'name',
+        'brand',
         'slug',
         'short_code',
         'created_by',

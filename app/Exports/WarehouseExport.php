@@ -2,40 +2,59 @@
 
 namespace App\Exports;
 
-use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
+use App\Reports\StockMovementReport;
+use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class WarehouseExport implements FromCollection, WithHeadings
+/**
+ * Warehouse stock in / out workbook, built from the same filters as the page:
+ *   sheet 1 = in / out / net / current stock per product
+ *   sheet 2 = every stock movement
+ */
+class WarehouseExport implements WithMultipleSheets
 {
-    protected $products;
-
-    public function __construct(Collection $products)
+    public function __construct(private array $filters)
     {
-        $this->products = $products;
     }
 
-    public function headings(): array
+    public function sheets(): array
     {
+        $report = new StockMovementReport($this->filters);
+
         return [
-            'No.',
-            'Name',
-            'SKU',
-            'Category',
-            'Quantity',
+            new ReportSheet(
+                'By Product',
+                ['Product', 'SKU', 'Category', 'In', 'Out', 'Net', 'Stock Now'],
+                $report->products()->orderByDesc('qty_out')->orderBy('mv.product_name'),
+                fn ($p) => [
+                    $p->product_name,
+                    $p->sku,
+                    $p->category_name,
+                    (int) $p->qty_in,
+                    (int) $p->qty_out,
+                    (int) $p->net,
+                    (int) $p->stock,
+                ],
+                text: [1, 2, 3],
+            ),
+            new ReportSheet(
+                'Stock Movements',
+                ['Date', 'Product', 'SKU', 'Category', 'Movement', 'In', 'Out', 'Reference', 'By', 'Note'],
+                $report->movements()->orderBy('m.moved_at')->orderBy('products.name'),
+                fn ($m) => [
+                    $m->moved_at ? Carbon::parse($m->moved_at)->format('Y-m-d H:i') : '',
+                    $m->product_name,
+                    $m->sku,
+                    $m->category_name,
+                    $m->movement,
+                    (int) $m->qty_in,
+                    (int) $m->qty_out,
+                    $m->reference,
+                    $m->user_name,
+                    $m->note,
+                ],
+                text: [2, 3, 4, 5, 8, 9, 10],
+            ),
         ];
-    }
-
-    public function collection()
-    {
-        return $this->products->map(function ($product, $index) {
-            return [
-                $index + 1,
-                $product->name,
-                $product->sku,
-                optional($product->category)->name,
-                $product->quantity,
-            ];
-        });
     }
 }

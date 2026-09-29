@@ -27,6 +27,10 @@ class UpdateCategoryRequest extends FormRequest
                 'required',
                 Rule::unique('categories')->ignore($this->category)
             ],
+            'brand' => [
+                'nullable',
+                \Illuminate\Validation\Rule::in(\App\Models\Category::BRANDS),
+            ],
             'slug' => [
                 'required',
                 'alpha_dash',

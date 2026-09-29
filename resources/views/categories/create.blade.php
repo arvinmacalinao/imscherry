@@ -20,6 +20,8 @@
                     <livewire:name />
 
                     <livewire:slug />
+
+                    @include('categories.partials.brand-select', ['selected' => old('brand')])
                 </div>
 
                 <div class="card-footer text-end">

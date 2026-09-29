@@ -155,6 +155,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('reports')->group(function () {
     Route::get('/categories', [ReportController::class, 'categories'])
         ->name('reports.categories');
+    Route::get('/categories/export', [ReportController::class, 'export_categories'])
+        ->name('categories.export');
     });
 
     Route::put('/orders/{order}/qc-done', [OrderController::class, 'qcDone'])

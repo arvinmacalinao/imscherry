@@ -34,6 +34,8 @@
                         :value="old('slug', $category->slug)"
                         required
                     />
+
+                    @include('categories.partials.brand-select', ['selected' => old('brand', $category->brand)])
                 </div>
                 <div class="card-footer text-end">
                     <x-button type="submit">

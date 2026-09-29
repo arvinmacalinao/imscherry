@@ -26,6 +26,10 @@ class StoreCategoryRequest extends FormRequest
                 'required',
                 'unique:categories,name'
             ],
+            'brand' => [
+                'nullable',
+                \Illuminate\Validation\Rule::in(\App\Models\Category::BRANDS),
+            ],
             'slug' => [
                 'required',
                 'unique:categories,slug',
