@@ -52,19 +52,35 @@ class ScanController extends Controller
             ? 'ship'
             : (str_contains($path, 'cancelled') ? 'cancelled' : 'return');
 
-        $cartInstance = 'order_' . $type;
-
         $request->validate([
             'tracking_number' => 'required|string',
         ]);
 
-        $trackingOrOrder = trim($request->tracking_number);
+        [$ok, $message] = self::addToScanList($type, $request->tracking_number);
+
+        return back()->with($ok ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Add a scanned tracking / order number to the scan list of $type (ship, return, cancelled).
+     * Used by the scan page (App\Livewire\ScanList) and the plain form route above.
+     *
+     * @return array{0: bool, 1: string} [added?, message for the user]
+     */
+    public static function addToScanList(string $type, string $scanned): array
+    {
+        $cartInstance = 'order_' . $type;
+        $trackingOrOrder = trim($scanned);
+
+        if ($trackingOrOrder === '') {
+            return [false, 'Nothing was scanned.'];
+        }
 
         // REQUIRED STATUS PER FLOW (checked again when the list is confirmed)
         $requiredStatus = self::requiredStatuses($type);
 
         // FIND ORDER
-        $order = Order::with('details.product')
+        $order = Order::with('status')
             ->where(function ($query) use ($trackingOrOrder) {
                 $query->where('tracking_number', $trackingOrOrder)
                     ->orWhere('order_number', $trackingOrOrder);
@@ -81,10 +97,7 @@ class ScanController extends Controller
                 default => 'a not-yet-shipped',
             };
 
-            return back()->with(
-                'error',
-                "Order {$trackingOrOrder} not found or not in {$statusText} status."
-            );
+            return [false, "Order {$trackingOrOrder} not found or not in {$statusText} status."];
         }
 
         // CHECK DUPLICATE SCAN
@@ -94,10 +107,7 @@ class ScanController extends Controller
             });
 
         if ($exists->isNotEmpty()) {
-            return back()->with(
-                'error',
-                "Order {$trackingOrOrder} already scanned."
-            );
+            return [false, "Order {$trackingOrOrder} already scanned."];
         }
 
         // ADD TO CART
@@ -113,10 +123,7 @@ class ScanController extends Controller
             ],
         ]);
 
-        return back()->with(
-            'success',
-            "Order {$trackingOrOrder} added to {$type} scan list."
-        );
+        return [true, "Order {$trackingOrOrder} added to {$type} scan list."];
     }
 
 
@@ -322,7 +329,7 @@ class ScanController extends Controller
      * Cancel only applies to orders that have not left the warehouse; a shipped order that
      * comes back goes through the return scan.
      */
-    private static function requiredStatuses(string $type): array
+    public static function requiredStatuses(string $type): array
     {
         return match ($type) {
             'ship'   => [2],          // QC Done
